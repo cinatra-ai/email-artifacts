@@ -1,0 +1,172 @@
+{
+  "name": "@cinatra-ai/email-artifacts",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "files": [
+    "src",
+    "skills"
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "peerDependencies": {
+    "@cinatra-ai/sdk-extensions": "*"
+  },
+  "peerDependenciesMeta": {
+    "@cinatra-ai/sdk-extensions": {
+      "optional": true
+    }
+  },
+  "cinatra": {
+    "apiVersion": "cinatra.ai/v1",
+    "kind": "artifact",
+    "displayName": "Email Artifacts",
+    "vendor": {
+      "key": "cinatra-ai",
+      "name": "Cinatra"
+    },
+    "dependencies": [],
+    "artifact": {
+      "accepts": {
+        "file": {
+          "mimeTypes": [
+            "text/markdown",
+            "text/plain"
+          ]
+        }
+      },
+      "skills": {
+        "matchers": [
+          "@cinatra-ai/email-artifacts:email-body-matcher"
+        ]
+      },
+      "matcherConfidenceThreshold": 0.7,
+      "objectTypes": [
+        {
+          "type": "@cinatra-ai/email:body",
+          "claim": "dedicated",
+          "dispositions": {
+            "projection": "artifact-safe",
+            "pinnable": true,
+            "snapshotPolicy": "content",
+            "sensitivity": "normal",
+            "mutability": "draftable"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "subject": { "type": "string" },
+              "bodyMarkdown": { "type": "string" },
+              "connectorId": { "type": "string" },
+              "campaignId": { "type": "string" },
+              "contactId": { "type": "string" },
+              "runId": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        {
+          "type": "@cinatra-ai/email:sent-email",
+          "claim": "dedicated",
+          "dispositions": {
+            "projection": "artifact-safe",
+            "pinnable": false,
+            "snapshotPolicy": "metadata",
+            "sensitivity": "normal",
+            "mutability": "record"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "auditId": { "type": "string", "minLength": 1 },
+              "idempotencyKey": { "type": "string", "minLength": 1 },
+              "connectorId": { "type": "string", "minLength": 1 },
+              "fromEmail": { "type": "string" },
+              "toEmail": { "type": "string", "minLength": 1 },
+              "subject": { "type": "string", "minLength": 1 },
+              "providerMessageId": { "type": "string", "minLength": 1 },
+              "providerThreadId": { "type": "string" },
+              "internetMessageId": { "type": "string" },
+              "sentAt": { "type": "string", "minLength": 1 },
+              "campaignId": { "type": "string" },
+              "contactId": { "type": "string" },
+              "runId": { "type": "string" }
+            },
+            "required": [
+              "auditId",
+              "idempotencyKey",
+              "connectorId",
+              "toEmail",
+              "subject",
+              "providerMessageId",
+              "sentAt"
+            ],
+            "additionalProperties": true
+          }
+        },
+        {
+          "type": "@cinatra-ai/email:received-reply",
+          "claim": "dedicated",
+          "dispositions": {
+            "projection": "artifact-safe",
+            "pinnable": false,
+            "snapshotPolicy": "metadata",
+            "sensitivity": "normal",
+            "mutability": "record"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "connectorId": { "type": "string", "minLength": 1 },
+              "providerMessageId": { "type": "string", "minLength": 1 },
+              "providerThreadId": { "type": "string" },
+              "internetMessageId": { "type": "string" },
+              "fromEmail": { "type": "string", "minLength": 1 },
+              "subject": { "type": "string", "minLength": 1 },
+              "snippet": { "type": "string" },
+              "receivedAt": { "type": "string", "minLength": 1 },
+              "threadId": { "type": "string" },
+              "contactId": { "type": "string" },
+              "campaignId": { "type": "string" }
+            },
+            "required": [
+              "connectorId",
+              "providerMessageId",
+              "fromEmail",
+              "subject",
+              "receivedAt"
+            ],
+            "additionalProperties": true
+          }
+        },
+        {
+          "type": "@cinatra-ai/email:recipient",
+          "claim": "dedicated",
+          "dispositions": {
+            "projection": "none",
+            "pinnable": false,
+            "snapshotPolicy": "none",
+            "sensitivity": "sensitive",
+            "mutability": "record"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "runId": { "type": "string", "minLength": 1 },
+              "connectorId": { "type": "string" },
+              "contactKey": { "type": "string" },
+              "email": { "type": "string", "minLength": 1, "pattern": "\\S" },
+              "campaignId": { "type": "string" },
+              "confirmed": { "type": "boolean" }
+            },
+            "required": [
+              "runId",
+              "email"
+            ],
+            "additionalProperties": true
+          }
+        }
+      ]
+    }
+  }
+}

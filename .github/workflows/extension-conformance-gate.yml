@@ -1,0 +1,52 @@
+name: extension-conformance-gate
+
+# Thin caller for the cinatra-monorepo extension-conformance gate
+# (cinatra-ai/cinatra .github/workflows/extension-conformance-gate-reusable.yml,
+# cinatra#979 enforcement point 2). It checks THIS repo out plus a pinned cinatra
+# SHA's conformance checker (scripts/extensions/conformance-gate.mjs) and runs the
+# checker against this repo — the SAME unified checker core CI runs over the
+# materialized tree, with NO per-repo copy-paste of rule logic.
+#
+# WHY, ALONGSIDE extension-kind-gate.mjs: the self-contained, zero-dependency
+# extension-kind-gate.mjs shipped in this repo validates the manifest BEFORE the
+# @cinatra-ai registry is even reachable, and (cinatra#1621/#1622) it now ADMITS
+# the versioned `cinatra.artifact.ui` renderer block with a VALUE-INDEPENDENT
+# shape pre-screen. The DERIVED values of that block — the closed slot enum
+# (detail/preview), the exact ui `abiVersion`, and the GENERATED `sdkAbiRange` —
+# are AUTHORITATIVELY enforced here, because this checker derives them live from
+# packages/sdk-extensions/src/artifact-contract.ts at the pinned SHA rather than
+# from a hand-mirrored copy that could drift between releases. So an artifact
+# extension that ships a renderer gets its `ui` block conformance-checked in its
+# OWN repo CI (this gate) in addition to the fail-closed marketplace publish gate.
+#
+# DOUBLE-PIN (the pinned-reusable-workflow convention used across the org): the
+# `uses:` ref and the `ref:` input below MUST be the SAME cinatra commit, so the
+# checker + its live-derivation SDK sources are never pulled from mutable main.
+# cinatra-ai/cinatra ships no version tags for this reusable workflow, so the pin
+# is main@8ccb895a with a placeholder `# v0.1.0` upstream-tag comment to satisfy
+# the org actions-pinned-gate's `# vX.Y.Z` contract (the same accommodation
+# release.yml makes for the tagless cinatra-ai/.github reusable release workflow).
+#
+# ENFORCE POSTURE — report first (enforce: false). A freshly extracted source
+# mirror starts at the rollout default: a non-baselined finding is printed as a
+# warning WITHOUT failing, matching the ui-design-system-gate's `strictness: warn`
+# ramp and the materialized-tree job's own CONFORMANCE_ENFORCE=0 first-rollout
+# posture (extension-conformance-gate.yml). A repo is ramped to `enforce: true`
+# once its conformance surface is clean or every remaining finding is triaged.
+# The reusable still fails hard on an INFRA error (exit 2 — a missing pinned SDK
+# source) regardless of this flag, so a broken pin never silently passes.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  extension-conformance-gate:
+    uses: cinatra-ai/cinatra/.github/workflows/extension-conformance-gate-reusable.yml@8ccb895adcc56d130040d847ed75b2d3fedd4da3 # v0.1.0
+    with:
+      ref: 8ccb895adcc56d130040d847ed75b2d3fedd4da3
+      enforce: false

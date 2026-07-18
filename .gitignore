@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Standalone repos resolve fresh in CI (--no-frozen-lockfile) and ship no
+# committed lockfile.
+pnpm-lock.yaml
+
+# Build output (tsc outDir)
+dist/
+
+# Test coverage
+coverage/
+
+# Local environment files
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS / editor cruft
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.planning/
