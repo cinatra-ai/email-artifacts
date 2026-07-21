@@ -19,6 +19,9 @@
   "peerDependenciesMeta": {
     "@cinatra-ai/sdk-extensions": {
       "optional": true
+    },
+    "@cinatra-ai/sdk-ui": {
+      "optional": true
     }
   },
   "dependencies": {

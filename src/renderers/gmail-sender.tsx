@@ -10,7 +10,7 @@ import {
 import { Label } from "../components/ui/label";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 
-// COMPONENT-ONLY relocation (cinatra#1625 S8/M3, eng#548 ruling 133-1): the
+// COMPONENT-ONLY relocation (cinatra#1625 S8/M3, ruling 133-1): the
 // visual Gmail sender picker moves into @cinatra-ai/email-artifacts. The host
 // resolves this migrated component through the generated field-renderer
 // component map keyed by the unchanged binding id
