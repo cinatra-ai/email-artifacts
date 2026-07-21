@@ -5,17 +5,31 @@
   "type": "module",
   "files": [
     "src",
+    "!src/__tests__",
     "skills"
   ],
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "peerDependencies": {
-    "@cinatra-ai/sdk-extensions": "*"
+    "@cinatra-ai/sdk-extensions": "*",
+    "@cinatra-ai/sdk-ui": "*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "peerDependenciesMeta": {
     "@cinatra-ai/sdk-extensions": {
       "optional": true
+    },
+    "@cinatra-ai/sdk-ui": {
+      "optional": true
     }
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.20.0",
+    "radix-ui": "^1.6.0",
+    "tailwind-merge": "^3.6.0"
   },
   "cinatra": {
     "apiVersion": "cinatra.ai/v1",
@@ -26,6 +40,35 @@
       "name": "Cinatra"
     },
     "dependencies": [],
+    "fieldRenderers": [
+      {
+        "id": "@cinatra-ai/email-drafting-agent:follow-up-cadence",
+        "kind": "follow-up-cadence",
+        "priority": 90,
+        "component": {
+          "entry": "./src/renderers/follow-up-cadence.tsx",
+          "propsApiVersion": 1
+        }
+      },
+      {
+        "id": "@cinatra-ai/email-follow-up-agent:follow-up-cadence",
+        "kind": "follow-up-cadence",
+        "priority": 90,
+        "component": {
+          "entry": "./src/renderers/follow-up-cadence.tsx",
+          "propsApiVersion": 1
+        }
+      },
+      {
+        "id": "@cinatra-ai/email-outreach-agent:gmail-sender",
+        "kind": "gmail-sender",
+        "priority": 100,
+        "component": {
+          "entry": "./src/renderers/gmail-sender.tsx",
+          "propsApiVersion": 1
+        }
+      }
+    ],
     "artifact": {
       "accepts": {
         "file": {
