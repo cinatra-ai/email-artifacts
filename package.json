@@ -62,6 +62,16 @@
         }
       },
       {
+        "id": "@cinatra-ai/email-recipient-selection-agent:campaign-recipients-review",
+        "kind": "campaign-recipients-review",
+        "priority": 80,
+        "midRunHitl": true,
+        "component": {
+          "entry": "./src/renderers/campaign-recipients-review.tsx",
+          "propsApiVersion": 1
+        }
+      },
+      {
         "id": "@cinatra-ai/email-drafting-agent:follow-up-cadence",
         "kind": "follow-up-cadence",
         "priority": 90,
