@@ -87,6 +87,15 @@
           "entry": "./src/renderers/gmail-sender.tsx",
           "propsApiVersion": 1
         }
+      },
+      {
+        "id": "@cinatra-ai/email-test-delivery-agent:input",
+        "kind": "test-delivery-input",
+        "priority": 80,
+        "component": {
+          "entry": "./src/renderers/test-delivery-input.tsx",
+          "propsApiVersion": 1
+        }
       }
     ],
     "artifact": {
