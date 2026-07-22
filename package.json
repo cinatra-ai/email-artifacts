@@ -42,6 +42,26 @@
     "dependencies": [],
     "fieldRenderers": [
       {
+        "id": "@cinatra-ai/email-drafting-agent:email-drafts-review",
+        "kind": "email-drafts-review",
+        "priority": 80,
+        "midRunHitl": true,
+        "component": {
+          "entry": "./src/renderers/email-drafts-review.tsx",
+          "propsApiVersion": 1
+        }
+      },
+      {
+        "id": "@cinatra-ai/email-follow-up-agent:email-drafts-review",
+        "kind": "email-drafts-review",
+        "priority": 80,
+        "midRunHitl": true,
+        "component": {
+          "entry": "./src/renderers/email-drafts-review.tsx",
+          "propsApiVersion": 1
+        }
+      },
+      {
         "id": "@cinatra-ai/email-drafting-agent:follow-up-cadence",
         "kind": "follow-up-cadence",
         "priority": 90,
