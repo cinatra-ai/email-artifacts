@@ -202,23 +202,46 @@ export function EmailDraftsReviewRenderer({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  // Dedupe emits on the SERIALIZED payload. `drafts` is a fresh useMemo array on
+  // every parent re-render (the run panel passes a NEW `value` object each
+  // render: `{...interruptContext.values, ...bufferedHitlValue}`), so this
+  // identity-keyed effect fires on every parent render. Without the guard the
+  // unconditional onChange drives the panel's mid-run onChange
+  // (setBufferedHitlValue) → parent re-render → new `value` → new `drafts` →
+  // this effect again → an infinite render loop (cinatra#1959; the pre-relocation
+  // host renderer avoided it by keying on the STABLE `drafts.length`). Emitting
+  // only when the payload CONTENT changes breaks the loop while still forwarding
+  // every real edit — and mirrors the seed effect's fingerprint guard above.
+  const lastEmittedRef = useRef<string | null>(null);
   useEffect(() => {
     if (drafts.length === 0) return;
     const payload = buildResumePayload(drafts, edits, campaignId);
-    onChangeRef.current({ ...payload, userResponse: JSON.stringify(payload) });
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastEmittedRef.current) return;
+    lastEmittedRef.current = serialized;
+    onChangeRef.current({ ...payload, userResponse: serialized });
   }, [drafts, edits, campaignId]);
 
   // Publish effective content so the hitl-assist LLM sees current text.
+  // Same identity-churn guard as the emit effect above: `drafts` is a fresh
+  // useMemo array on every parent render, and onHitlContextChange is a stable
+  // parent callback that calls setRendererHitlContext, so an unguarded publish
+  // re-renders the parent every render → new value → new drafts → this effect
+  // again → the same infinite loop (cinatra#1959). Publish only when the
+  // effective content actually changes.
+  const lastPublishedRef = useRef<string | null>(null);
   useEffect(() => {
     if (drafts.length === 0) return;
-    onHitlContextChange?.({
-      drafts: drafts.map((d) => ({
-        id: d.id,
-        recipientEmail: d.recipientEmail,
-        subject: edits[d.id]?.subject ?? d.subject,
-        body: edits[d.id]?.body ?? d.body,
-      })),
-    });
+    const published = drafts.map((d) => ({
+      id: d.id,
+      recipientEmail: d.recipientEmail,
+      subject: edits[d.id]?.subject ?? d.subject,
+      body: edits[d.id]?.body ?? d.body,
+    }));
+    const serialized = JSON.stringify(published);
+    if (serialized === lastPublishedRef.current) return;
+    lastPublishedRef.current = serialized;
+    onHitlContextChange?.({ drafts: published });
   }, [drafts, edits, onHitlContextChange]);
 
   const handleFieldChange = (draftId: string, field: "subject" | "body", val: string) => {

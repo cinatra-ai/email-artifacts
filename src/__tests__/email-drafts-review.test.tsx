@@ -142,4 +142,39 @@ describe("EmailDraftsReviewRenderer", () => {
     render(<EmailDraftsReviewRenderer {...baseProps({ value: followupBundle })} />);
     expect(screen.getByText("Day 4")).toBeTruthy();
   });
+
+  it("does not re-emit onChange when the parent re-renders with a content-equal but new value object (loop guard, cinatra#1959)", () => {
+    // The run panel passes value={{ ...interruptContext.values, ...bufferedHitlValue }}
+    // — a fresh object literal on every render — so `drafts` (useMemo over value)
+    // churns identity each render. An unguarded emit effect would call onChange
+    // every render → the panel's mid-run onChange (setBufferedHitlValue) →
+    // re-render → infinite loop ("Maximum update depth exceeded"). The serialized
+    // dedupe guard must suppress the redundant emit.
+    const onChange = vi.fn();
+    // onHitlContextChange is a stable parent callback (setRendererHitlContext);
+    // an unguarded publish effect loops the same way as the emit effect, so both
+    // must be deduped.
+    const onHitlContextChange = vi.fn();
+    const { rerender } = render(
+      <EmailDraftsReviewRenderer {...baseProps({ onChange, onHitlContextChange })} />,
+    );
+    const onChangeAfterMount = onChange.mock.calls.length;
+    const onCtxAfterMount = onHitlContextChange.mock.calls.length;
+    expect(onChangeAfterMount).toBeGreaterThan(0);
+    expect(onCtxAfterMount).toBeGreaterThan(0);
+    // Two content-equal re-renders with brand-new value objects (identity churn).
+    rerender(
+      <EmailDraftsReviewRenderer
+        {...baseProps({ onChange, onHitlContextChange, value: JSON.parse(JSON.stringify(draftBundle)) })}
+      />,
+    );
+    rerender(
+      <EmailDraftsReviewRenderer
+        {...baseProps({ onChange, onHitlContextChange, value: JSON.parse(JSON.stringify(draftBundle)) })}
+      />,
+    );
+    // No additional emit / publish — the content is unchanged.
+    expect(onChange.mock.calls.length).toBe(onChangeAfterMount);
+    expect(onHitlContextChange.mock.calls.length).toBe(onCtxAfterMount);
+  });
 });
