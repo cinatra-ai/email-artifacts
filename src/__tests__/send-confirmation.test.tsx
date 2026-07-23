@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, cleanup } from "@testing-library/react";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 import { SendConfirmationRenderer } from "../renderers/send-confirmation";
 
@@ -39,20 +39,33 @@ describe("SendConfirmationRenderer — snapshot summary (action-decoupled, cinat
   });
 });
 
-describe("SendConfirmationRenderer — embedded sender field (#1923 floor contract)", () => {
-  it("gmail DISCONNECTED renders the eager inline #field-senderEmail input (never blank)", () => {
-    const { container } = render(<SendConfirmationRenderer {...baseProps()} />);
-    const input = container.querySelector("#field-senderEmail") as HTMLInputElement | null;
-    expect(input).toBeTruthy();
-    expect(input!.getAttribute("type")).toBe("email");
-    // The pack Select trigger placeholder must NOT be present in the disconnected state.
+// Sender is DISPLAY-ONLY (owner ruling 2026-07-23 (groganz), option (a);
+// cinatra#1961 follow-up F2). The send always uses the campaign-configured sender
+// (the email-delivery flow wires senderEmail to the send node from `start`, not
+// from this gate), so the previously-editable sender field was a lie — its edit
+// was emitted into the approval payload but never honored. The shell now renders
+// the sender as plain read-only data with NO input affordance in EITHER gmail
+// connectivity state (the old connected-Select / disconnected-inline-input fork
+// is gone entirely).
+describe("SendConfirmationRenderer — sender is display-only (owner ruling 2026-07-23)", () => {
+  it("renders the sender address as plain read-only data — no input, no picker", () => {
+    const { container } = render(
+      <SendConfirmationRenderer {...baseProps({ value: { campaignId: "camp-1", senderEmail: "me@acme.com" } })} />,
+    );
+    // Shown under a plain "Sender" label as read-only text.
+    expect(screen.getByText("Sender")).toBeTruthy();
+    expect(screen.getByText("me@acme.com")).toBeTruthy();
+    // No input affordance whatsoever — neither the eager inline input nor a picker.
+    expect(container.querySelector("#field-senderEmail")).toBeNull();
+    expect(container.querySelector("input")).toBeNull();
     expect(screen.queryByText("Select a sender address")).toBeNull();
   });
 
-  it("gmail CONNECTED (aliases present) renders the pack gmail-sender Select, not the inline input", () => {
+  it("renders NO editable sender even when gmail is CONNECTED with aliases", () => {
     const { container } = render(
       <SendConfirmationRenderer
         {...baseProps({
+          value: { campaignId: "camp-1", senderEmail: "founder@acme.com" },
           context: {
             connectedApps: ["gmail"],
             gmailAliases: [{ sendAsEmail: "founder@acme.com", displayName: "Founder" }],
@@ -60,11 +73,11 @@ describe("SendConfirmationRenderer — embedded sender field (#1923 floor contra
         })}
       />,
     );
-    expect(screen.getByText("Select a sender address")).toBeTruthy();
-    // The eager fallback is specifically an <input>; the gmail-sender Select
-    // trigger also carries id="field-senderEmail" (a <button>), so distinguish by
-    // tag — the connected state must render NO inline input.
+    // The read-only address shows; the old connected-state Select is gone.
+    expect(screen.getByText("founder@acme.com")).toBeTruthy();
     expect(container.querySelector("input#field-senderEmail")).toBeNull();
+    expect(container.querySelector("input")).toBeNull();
+    expect(screen.queryByText("Select a sender address")).toBeNull();
   });
 });
 
@@ -135,17 +148,18 @@ describe("SendConfirmationRenderer — scheduledAt row (surfaced snapshot field)
 });
 
 describe("SendConfirmationRenderer — approval payload", () => {
-  it("emits { campaignId, senderEmail } so the approval carries the confirmed sender", () => {
+  it("emits { campaignId } only — never senderEmail, even when the gate surfaced one (send uses the campaign-configured sender)", () => {
     const onChange = vi.fn();
-    const { container } = render(
-      <SendConfirmationRenderer {...baseProps({ onChange, value: { campaignId: "camp-9" } })} />,
+    render(
+      <SendConfirmationRenderer
+        {...baseProps({ onChange, value: { campaignId: "camp-9", senderEmail: "me@acme.com" } })}
+      />,
     );
-    // Mount emit — campaignId present, sender not yet typed.
-    expect(onChange).toHaveBeenCalledWith({ campaignId: "camp-9", senderEmail: undefined });
-    const input = container.querySelector("#field-senderEmail") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "me@acme.com" } });
+    // The emit carries ONLY the campaignId (no summary here) and MUST NOT carry
+    // senderEmail — the editable-sender emit was the defect the owner ruling fixed.
     const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
-    expect(last).toEqual({ campaignId: "camp-9", senderEmail: "me@acme.com" });
+    expect(last).toEqual({ campaignId: "camp-9" });
+    expect(last).not.toHaveProperty("senderEmail");
   });
 
   it("does not emit while no campaign is selected", () => {
@@ -155,32 +169,61 @@ describe("SendConfirmationRenderer — approval payload", () => {
   });
 });
 
-// Relocated from the retired host renderer-local-state Test 4 (cinatra#1961): the
-// eager-inline sender value-sync + poll-safety fingerprint guard now live here.
-describe("SendConfirmationRenderer — senderEmail value-sync (eager inline path)", () => {
-  it("syncs senderEmail when value.senderEmail changes externally (a@x.com -> b@x.com)", () => {
-    const { rerender } = render(
-      <SendConfirmationRenderer {...baseProps({ value: { campaignId: "c1", senderEmail: "a@x.com" } })} />,
-    );
-    expect(screen.queryByDisplayValue("a@x.com")).not.toBeNull();
-    rerender(
-      <SendConfirmationRenderer {...baseProps({ value: { campaignId: "c1", senderEmail: "b@x.com" } })} />,
-    );
-    expect(screen.queryByDisplayValue("b@x.com")).not.toBeNull();
-  });
-
-  it("POLL SAFETY: a same-content re-emit with a new object reference does not reset a user-typed address", () => {
+// The read-only sender row carries the exact sender the send will use, surfaced by
+// the gate for DISPLAY (surfaceGateInputs) and latched so it survives the emit
+// round-trip that intentionally drops it (display-only — owner ruling 2026-07-23).
+describe("SendConfirmationRenderer — senderEmail read-only display (latched)", () => {
+  it("reflects value.senderEmail as read-only text and updates on external change (a@x.com -> b@x.com)", () => {
     const { rerender, container } = render(
       <SendConfirmationRenderer {...baseProps({ value: { campaignId: "c1", senderEmail: "a@x.com" } })} />,
     );
-    const input = container.querySelector("#field-senderEmail") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "user@typed.com" } });
-    expect(screen.queryByDisplayValue("user@typed.com")).not.toBeNull();
-    // Poll tick — parent re-emits the SAME senderEmail in a fresh object.
+    expect(screen.getByText("a@x.com")).toBeTruthy();
+    // Read-only: it is TEXT, not a form control.
+    expect(container.querySelector("#field-senderEmail")).toBeNull();
     rerender(
+      <SendConfirmationRenderer {...baseProps({ value: { campaignId: "c1", senderEmail: "b@x.com" } })} />,
+    );
+    expect(screen.getByText("b@x.com")).toBeTruthy();
+  });
+
+  it("reseeds on a campaign switch — the prior campaign's sender never leaks", () => {
+    const { rerender } = render(
       <SendConfirmationRenderer {...baseProps({ value: { campaignId: "c1", senderEmail: "a@x.com" } })} />,
     );
-    expect(screen.queryByDisplayValue("user@typed.com")).not.toBeNull();
-    expect(screen.queryByDisplayValue("a@x.com")).toBeNull();
+    expect(screen.getByText("a@x.com")).toBeTruthy();
+    // A different campaign with its own sender — the latch must reset, not carry a@x.com.
+    rerender(
+      <SendConfirmationRenderer {...baseProps({ value: { campaignId: "c2", senderEmail: "c@x.com" } })} />,
+    );
+    expect(screen.getByText("c@x.com")).toBeTruthy();
+    expect(screen.queryByText("a@x.com")).toBeNull();
+    // Switching to a campaign that surfaced NO sender drops the row entirely.
+    rerender(<SendConfirmationRenderer {...baseProps({ value: { campaignId: "c3" } })} />);
+    expect(screen.queryByText("Sender")).toBeNull();
+    expect(screen.queryByText("c@x.com")).toBeNull();
+  });
+
+  it("keeps the sender displayed after the self-erasing emit round-trip (display-only latch)", () => {
+    // Controlled parent that REPLACES value with each emitted object (run-panel
+    // semantics). The emit drops senderEmail (display-only), so without the latch
+    // the row would collapse to blank on the echoed re-render.
+    let current: Record<string, unknown> = {
+      campaignId: "camp-1",
+      senderEmail: "founder@acme.com",
+      summary: { recipientCount: 2, draftCount: 2 },
+    };
+    const onChange = vi.fn((next: unknown) => {
+      current = next as Record<string, unknown>;
+    });
+    const { rerender } = render(
+      <SendConfirmationRenderer {...baseProps({ value: current, onChange })} />,
+    );
+    expect(screen.getByText("founder@acme.com")).toBeTruthy();
+    expect(onChange).toHaveBeenCalled();
+    // The echoed-back payload carried NO senderEmail (display-only emit) ...
+    expect(current).not.toHaveProperty("senderEmail");
+    rerender(<SendConfirmationRenderer {...baseProps({ value: current, onChange })} />);
+    // ... yet the read-only sender SURVIVES via the latch.
+    expect(screen.getByText("founder@acme.com")).toBeTruthy();
   });
 });

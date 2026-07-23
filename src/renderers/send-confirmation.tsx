@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
-import { GmailSenderFieldRenderer } from "./gmail-sender";
 
-// Pure snapshot -> render + onChange renderer for the send-confirmation SHELL
-// (cinatra#1961). Relocated out of the core host renderer
+// Pure snapshot -> render renderer for the send-confirmation SHELL (cinatra#1961).
+// Relocated out of the core host renderer
 // (packages/agents/src/send-confirmation-renderer.tsx) into this pack under the
 // #1923 cross-declarer pattern + the owner action-boundary ruling.
 //
@@ -20,36 +17,28 @@ import { GmailSenderFieldRenderer } from "./gmail-sender";
 // a read/render decoupling ONLY — no mutation is restructured (the send routes
 // through the #1946-fixed primitive path, out of scope here).
 //
-// The embedded sender field keeps the #1923 floor contract: gmail CONNECTED
-// (aliases present) mirrors the host gmail-sender activation condition and
-// renders the pack `gmail-sender` Select; gmail DISCONNECTED renders an EAGER
-// inline <input id="field-senderEmail"> that commits every keystroke to the
-// approval payload immediately (never the buffering schema floor, so a typed
-// address is never lost on approval — codex 2026-07-21, preserved from #1923).
-// Both sender renderers now live in THIS pack, so the shell composes the sibling
-// GmailSenderFieldRenderer DIRECTLY — an extension cannot import the host
-// field-renderer registry, so the registry lookup is replaced by the same
-// activation predicate the host condition applied to this `senderEmail` field.
+// SENDER IS DISPLAY-ONLY (owner ruling 2026-07-23 (groganz), option (a);
+// cinatra#1961 follow-up F2). The send always uses the campaign-configured
+// sender: the email-delivery flow wires `senderEmail` to the send node straight
+// from the `start` inputs (the DataFlowEdge start_senderEmail_to_send), NOT from
+// this gate's approval payload — the gate's only output is `userResponse`, which
+// reaches no send input. An editable sender field here was therefore a lie: its
+// edit was emitted into the approval payload but never honored. So the shell now
+// renders the sender as PLAIN READ-ONLY DATA in the campaign summary — no input
+// affordance, and `senderEmail` is NOT part of the emitted (editable) payload.
+// The gate still SURFACES `senderEmail` (surfaceGateInputs) purely so this row
+// can display the exact sender that will be used; we keep it in the displayed
+// summary. midRunHitl stays: the confirmation is unchanged, only the false
+// editability is removed.
 
 // Preloaded summary shape carried in the gate's interrupt payload.
 type SendSummary = { recipientCount?: number; draftCount?: number; scheduledAt?: string };
 
-export function SendConfirmationRenderer({
-  value,
-  onChange,
-  disabled,
-  context,
-  aiSuggestions,
-}: FieldRendererProps) {
-  // Stable ref for onChange so the sync effects never capture a stale closure
+export function SendConfirmationRenderer({ value, onChange }: FieldRendererProps) {
+  // Stable ref for onChange so the sync effect never captures a stale closure
   // when the run panel recreates the callback on re-render.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  // Tracks the last senderEmail synced from the parent so poll-tick reference
-  // churn (same content, new object) does not reset a user-typed value.
-  const lastSyncedEmailRef = useRef<string>(
-    (value as { senderEmail?: string } | null)?.senderEmail ?? "",
-  );
 
   // Gate-supplied summary snapshot (no host fetch). Absent -> em-dash cells.
   //
@@ -71,52 +60,55 @@ export function SendConfirmationRenderer({
   const scheduledAt = summary?.scheduledAt;
   const campaignId = (value as { campaignId?: string } | null)?.campaignId;
 
-  const [senderEmail, setSenderEmail] = useState<string>(
-    (value as { senderEmail?: string } | null)?.senderEmail ?? "",
-  );
+  // Read-only sender for DISPLAY, latched in STATE (never a render-written ref:
+  // React forbids reading/writing a ref during render, and an abandoned concurrent
+  // render could otherwise leak an uncommitted address into a later sender-less
+  // echo, making the confirmation untruthful — codex 2026-07-23). Same surfacing
+  // lifecycle as `summary`: the gate surfaces `senderEmail` only pre-interrupt and
+  // the emit below intentionally OMITS it (display-only), so the value rewrite that
+  // follows the emit drops `value.senderEmail`; the truthy-guarded latch keeps the
+  // row populated across that self-erasure, and never emits it back (no editable
+  // senderEmail — owner ruling 2026-07-23). Scoped to campaignId so a campaign
+  // switch never shows the prior campaign's sender. State is adjusted DURING render
+  // (React's sanctioned reset/derive-on-prop-change pattern), so the displayed
+  // address is synchronous with no effect lag.
+  const incomingSenderEmail = (value as { senderEmail?: string } | null)?.senderEmail;
+  const [latchedSender, setLatchedSender] = useState<{ campaignId?: string; email?: string }>({
+    campaignId,
+    email: incomingSenderEmail || undefined,
+  });
+  let senderEmail = latchedSender.email;
+  if (latchedSender.campaignId !== campaignId) {
+    // Campaign changed under this instance — reseed with the new campaign's sender.
+    setLatchedSender({ campaignId, email: incomingSenderEmail || undefined });
+    senderEmail = incomingSenderEmail || undefined;
+  } else if (incomingSenderEmail && incomingSenderEmail !== latchedSender.email) {
+    // Latch the first/latest non-empty sender for this campaign.
+    setLatchedSender({ campaignId, email: incomingSenderEmail });
+    senderEmail = incomingSenderEmail;
+  }
 
-  // Keep the approval payload in sync with campaignId + senderEmail. Read through
-  // onChangeRef so the effect always calls the latest callback without adding
-  // onChange to the dep array, avoiding stale-closure re-fires. Deps are PRIMITIVE
-  // (a stable campaignId string + local senderEmail), so a parent re-render with a
-  // fresh `value` object literal does not re-fire this effect — no render loop.
+  // Keep the approval payload in sync with campaignId (+ the latched summary).
+  // Read through onChangeRef so the effect always calls the latest callback
+  // without adding onChange to the dep array, avoiding stale-closure re-fires. The
+  // dep is a single PRIMITIVE (the stable campaignId string), so a parent
+  // re-render with a fresh `value` object literal does not re-fire this effect —
+  // no render loop. senderEmail is DELIBERATELY absent from the emitted payload:
+  // the send uses the campaign-configured sender (see the header note), so the
+  // gate must not carry an editable sender.
   useEffect(() => {
     if (campaignId) {
       // Read the latched summary through the ref (a ref access is exempt from the
-      // effect dep array, so this does NOT re-fire on summary churn — the effect
-      // still fires only on campaignId/senderEmail changes). Omitted entirely when
-      // absent so the payload shape is byte-unchanged for the no-summary case.
+      // effect dep array, so this does NOT re-fire on summary churn). Omitted
+      // entirely when absent so the payload shape is byte-unchanged for the
+      // no-summary case.
       const s = summaryRef.current;
       onChangeRef.current({
         campaignId,
-        senderEmail: senderEmail || undefined,
         ...(s !== undefined ? { summary: s } : {}),
       });
     }
-  }, [campaignId, senderEmail]);
-
-  // Sync `senderEmail` when an AI suggestion arrives from the parent's sticky
-  // bottom prompt. `aiSuggestions` is a stable payload — it only changes when the
-  // user submits a prompt — so this fires exactly once per Suggest click and does
-  // not wipe in-progress user edits between polls.
-  useEffect(() => {
-    if (!aiSuggestions) return;
-    if (typeof aiSuggestions.senderEmail === "string") {
-      setSenderEmail(aiSuggestions.senderEmail);
-    }
-  }, [aiSuggestions]);
-
-  // Sync `senderEmail` when the parent rewrites `value` externally (AI suggestion,
-  // form.reset). Guard with lastSyncedEmailRef so poll-tick reference churn (same
-  // content, new object spread) does not reset a user-typed address.
-  useEffect(() => {
-    const v = value as { senderEmail?: string } | null | undefined;
-    const incoming = v?.senderEmail ?? "";
-    if (typeof v?.senderEmail === "string" && incoming !== lastSyncedEmailRef.current) {
-      lastSyncedEmailRef.current = incoming;
-      setSenderEmail(incoming);
-    }
-  }, [value]);
+  }, [campaignId]);
 
   if (!campaignId) {
     return (
@@ -125,20 +117,6 @@ export function SendConfirmationRenderer({
       </p>
     );
   }
-
-  // Sender picker activation — the host gmail-sender condition
-  // (makeGmailSenderCondition) gates on a connected gmail + present aliases, then
-  // matches this `senderEmail` field via the x-renderer/whitelist heuristic. For
-  // this specific shell-embedded field the predicate reduces to exactly that
-  // context gate, replicated here (the host registry is not importable from a
-  // pack). Connected -> the pack Select; otherwise -> the eager inline input.
-  const gmailReady =
-    context.connectedApps.includes("gmail") && (context.gmailAliases?.length ?? 0) > 0;
-  const senderSchema: Record<string, unknown> = {
-    type: "string",
-    title: "Sender email",
-    "x-renderer": "gmail-sender",
-  };
 
   return (
     <div className="soft-panel flex flex-col gap-4 p-4">
@@ -150,6 +128,16 @@ export function SendConfirmationRenderer({
             <span className="text-muted-foreground">Campaign ID</span>
             <span>{campaignId}</span>
           </div>
+          {/* Sender — READ-ONLY (owner ruling 2026-07-23). The exact sender the
+              send will use, surfaced by the gate (surfaceGateInputs) for display
+              only; never an input, never emitted. Rendered only when the gate
+              supplied a sender, mirroring the Scheduled row (no dead em-dash cell). */}
+          {senderEmail ? (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Sender</span>
+              <span>{senderEmail}</span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Recipients</span>
             <span>{recipientCount ?? "—"}</span>
@@ -169,38 +157,6 @@ export function SendConfirmationRenderer({
           ) : null}
         </div>
       </div>
-
-      {/* Sender email — pack-composed (see the activation note above). Connected:
-          the gmail-sender Select (hideSubmit suppresses any degrade-floor button).
-          Disconnected: the eager inline input that commits every keystroke. */}
-      {gmailReady ? (
-        <GmailSenderFieldRenderer
-          fieldName="senderEmail"
-          schema={senderSchema}
-          value={senderEmail}
-          onChange={(v) => setSenderEmail(typeof v === "string" ? v : "")}
-          disabled={disabled}
-          required
-          hideSubmit
-          label="Sender email"
-          context={context}
-        />
-      ) : (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="field-senderEmail" className="text-foreground">
-            Sender email *
-          </Label>
-          <Input
-            id="field-senderEmail"
-            type="email"
-            className="border-line"
-            value={senderEmail}
-            disabled={disabled}
-            placeholder="you@example.com"
-            onChange={(e) => setSenderEmail(e.target.value)}
-          />
-        </div>
-      )}
 
       {/* Warning */}
       <p className="text-sm text-destructive font-medium">
