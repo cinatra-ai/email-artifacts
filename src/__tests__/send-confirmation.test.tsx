@@ -82,8 +82,8 @@ describe("SendConfirmationRenderer — controlled re-render summary preservation
       campaignId: "camp-1",
       summary: { recipientCount: 12, draftCount: 12 },
     };
-    const onChange = vi.fn((next: Record<string, unknown>) => {
-      current = next;
+    const onChange = vi.fn((next: unknown) => {
+      current = next as Record<string, unknown>;
     });
     const { rerender } = render(
       <SendConfirmationRenderer {...baseProps({ value: current, onChange })} />,
