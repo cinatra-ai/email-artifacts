@@ -111,6 +111,7 @@
         "id": "@cinatra-ai/email-delivery-agent:send-confirmation",
         "kind": "send-confirmation",
         "priority": 80,
+        "midRunHitl": true,
         "component": {
           "entry": "./src/renderers/send-confirmation.tsx",
           "propsApiVersion": 1

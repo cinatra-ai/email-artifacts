@@ -68,6 +68,72 @@ describe("SendConfirmationRenderer — embedded sender field (#1923 floor contra
   });
 });
 
+// cinatra#1961 — SELF-ERASURE REGRESSION. The renderer's mount effect re-emits
+// the approval payload, and the run panel REPLACES `value` with exactly that
+// emitted object. The gate surfaces `summary` only on the pre-interrupt visit, so
+// before the fix the emit dropped it and the recipient/draft counts collapsed to
+// em-dashes on the next controlled re-render. Both the latch and the emit-echo are
+// exercised here.
+describe("SendConfirmationRenderer — controlled re-render summary preservation (cinatra#1961)", () => {
+  it("keeps the recipient/draft counts when the parent echoes the emitted payload back as value", () => {
+    // Controlled parent: value starts with the gate-surfaced summary; every
+    // onChange REPLACES value with exactly the emitted object (run-panel semantics).
+    let current: Record<string, unknown> = {
+      campaignId: "camp-1",
+      summary: { recipientCount: 12, draftCount: 12 },
+    };
+    const onChange = vi.fn((next: Record<string, unknown>) => {
+      current = next;
+    });
+    const { rerender } = render(
+      <SendConfirmationRenderer {...baseProps({ value: current, onChange })} />,
+    );
+    // The mount effect emitted; feed the emitted object back as the new value.
+    expect(onChange).toHaveBeenCalled();
+    rerender(<SendConfirmationRenderer {...baseProps({ value: current, onChange })} />);
+    // Counts SURVIVE — the pre-fix self-erasure collapsed both to em-dashes.
+    expect(screen.getAllByText("12")).toHaveLength(2);
+    expect(screen.queryByText("—")).toBeNull();
+  });
+
+  it("echoes the gate summary into the emitted approval payload (round-trip fidelity)", () => {
+    const onChange = vi.fn();
+    render(
+      <SendConfirmationRenderer
+        {...baseProps({
+          onChange,
+          value: { campaignId: "camp-1", summary: { recipientCount: 3, draftCount: 5 } },
+        })}
+      />,
+    );
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    expect(last.campaignId).toBe("camp-1");
+    expect(last.summary).toEqual({ recipientCount: 3, draftCount: 5 });
+  });
+});
+
+describe("SendConfirmationRenderer — scheduledAt row (surfaced snapshot field)", () => {
+  it("renders a Scheduled row when the summary carries a scheduledAt", () => {
+    render(
+      <SendConfirmationRenderer
+        {...baseProps({
+          value: {
+            campaignId: "camp-1",
+            summary: { recipientCount: 2, draftCount: 2, scheduledAt: "2026-07-24T09:00:00Z" },
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("Scheduled")).toBeTruthy();
+    expect(screen.getByText("2026-07-24T09:00:00Z")).toBeTruthy();
+  });
+
+  it("omits the Scheduled row for an immediate send (no scheduledAt)", () => {
+    render(<SendConfirmationRenderer {...baseProps()} />);
+    expect(screen.queryByText("Scheduled")).toBeNull();
+  });
+});
+
 describe("SendConfirmationRenderer — approval payload", () => {
   it("emits { campaignId, senderEmail } so the approval carries the confirmed sender", () => {
     const onChange = vi.fn();

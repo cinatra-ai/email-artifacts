@@ -52,9 +52,23 @@ export function SendConfirmationRenderer({
   );
 
   // Gate-supplied summary snapshot (no host fetch). Absent -> em-dash cells.
-  const summary = (value as { summary?: SendSummary } | null)?.summary;
+  //
+  // SELF-ERASURE GUARD (cinatra#1961): the sync effect below re-emits the
+  // approval payload through onChange, and the run panel REPLACES `value` with
+  // exactly that emitted object. The email-delivery gate surfaces `summary` ONLY
+  // on the pre-interrupt visit (surfaceGateInputs), so any emit that dropped it
+  // collapsed the recipient/draft counts to em-dashes on the very next controlled
+  // re-render. Latch the first non-empty snapshot in a ref so the display survives
+  // ANY external value rewrite, and (below) echo it back in every emit so
+  // value.summary round-trips and the resolved approval payload carries it. Either
+  // channel alone fixes the counts; both make them robust.
+  const incomingSummary = (value as { summary?: SendSummary } | null)?.summary;
+  const summaryRef = useRef<SendSummary | undefined>(incomingSummary);
+  if (incomingSummary !== undefined) summaryRef.current = incomingSummary;
+  const summary = summaryRef.current;
   const recipientCount = summary?.recipientCount;
   const draftCount = summary?.draftCount;
+  const scheduledAt = summary?.scheduledAt;
   const campaignId = (value as { campaignId?: string } | null)?.campaignId;
 
   const [senderEmail, setSenderEmail] = useState<string>(
@@ -67,7 +81,18 @@ export function SendConfirmationRenderer({
   // (a stable campaignId string + local senderEmail), so a parent re-render with a
   // fresh `value` object literal does not re-fire this effect — no render loop.
   useEffect(() => {
-    if (campaignId) onChangeRef.current({ campaignId, senderEmail: senderEmail || undefined });
+    if (campaignId) {
+      // Read the latched summary through the ref (a ref access is exempt from the
+      // effect dep array, so this does NOT re-fire on summary churn — the effect
+      // still fires only on campaignId/senderEmail changes). Omitted entirely when
+      // absent so the payload shape is byte-unchanged for the no-summary case.
+      const s = summaryRef.current;
+      onChangeRef.current({
+        campaignId,
+        senderEmail: senderEmail || undefined,
+        ...(s !== undefined ? { summary: s } : {}),
+      });
+    }
   }, [campaignId, senderEmail]);
 
   // Sync `senderEmail` when an AI suggestion arrives from the parent's sticky
@@ -133,6 +158,15 @@ export function SendConfirmationRenderer({
             <span className="text-muted-foreground">Drafts</span>
             <span>{draftCount ?? "—"}</span>
           </div>
+          {/* Scheduled send time — surfaced by the gate snapshot (summary.scheduledAt).
+              Rendered only when the prepare step supplied a non-empty value; an
+              immediate send omits the row entirely (no dead em-dash cell). */}
+          {scheduledAt ? (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Scheduled</span>
+              <span>{scheduledAt}</span>
+            </div>
+          ) : null}
         </div>
       </div>
 
