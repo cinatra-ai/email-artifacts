@@ -106,6 +106,26 @@
           "entry": "./src/renderers/test-delivery-input.tsx",
           "propsApiVersion": 1
         }
+      },
+      {
+        "id": "@cinatra-ai/email-delivery-agent:output",
+        "kind": "send-confirmation",
+        "priority": 80,
+        "a2uiTranslator": "send-output",
+        "component": {
+          "entry": "./src/renderers/send-confirmation.tsx",
+          "propsApiVersion": 1
+        }
+      },
+      {
+        "id": "@cinatra-ai/email-delivery-agent:send-confirmation",
+        "kind": "send-confirmation",
+        "priority": 80,
+        "midRunHitl": true,
+        "component": {
+          "entry": "./src/renderers/send-confirmation.tsx",
+          "propsApiVersion": 1
+        }
       }
     ],
     "artifact": {
