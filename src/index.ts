@@ -28,10 +28,10 @@ import type { SemanticArtifactManifest } from "@cinatra-ai/sdk-extensions";
 // The four claims (kind, per-claim dispositions incl. mutability class, and the
 // inline row JSON Schema each carries as its schema-source) are the manifest of
 // record in `package.json` `cinatra.artifact.objectTypes`; the object-registry
-// bridge reads them there. This typed export mirrors only the DESCRIPTOR half
-// (representation forms + matcher bundle) — the SDK `SemanticArtifactManifest`
-// contract the bridge type-checks the descriptor against; the `objectTypes`
-// claim block is validated host-side by the objects manifest schema.
+// bridge reads them there. This typed export mirrors that manifest IN FULL —
+// the descriptor (representation forms + matcher bundle) AND all four
+// `objectTypes` claims — against the SDK `SemanticArtifactManifest` contract,
+// so the two cannot diverge.
 //
 // Bytes-only matcher: text/markdown + text/plain. text/html is not in the LLM
 // capability registry.
@@ -42,7 +42,217 @@ export const emailArtifactsManifest: SemanticArtifactManifest = {
     },
   },
   skills: {
-    matchers: ["@cinatra-ai/email-artifacts:email-body-matcher"],
+    matchers: ["@cinatra-ai/email-body-matcher-skill:email-body-matcher"],
   },
   matcherConfidenceThreshold: 0.7,
+  objectTypes: [
+    {
+      type: "@cinatra-ai/email:body",
+      claim: "dedicated",
+      dispositions: {
+        projection: "artifact-safe",
+        pinnable: true,
+        snapshotPolicy: "content",
+        sensitivity: "normal",
+        mutability: "draftable",
+      },
+      schema: {
+        type: "object",
+        properties: {
+          subject: {
+            type: "string",
+          },
+          bodyMarkdown: {
+            type: "string",
+          },
+          connectorId: {
+            type: "string",
+          },
+          campaignId: {
+            type: "string",
+          },
+          contactId: {
+            type: "string",
+          },
+          runId: {
+            type: "string",
+          },
+        },
+        additionalProperties: true,
+      },
+    },
+    {
+      type: "@cinatra-ai/email:sent-email",
+      claim: "dedicated",
+      dispositions: {
+        projection: "artifact-safe",
+        pinnable: false,
+        snapshotPolicy: "metadata",
+        sensitivity: "normal",
+        mutability: "record",
+      },
+      schema: {
+        type: "object",
+        properties: {
+          auditId: {
+            type: "string",
+            minLength: 1,
+          },
+          idempotencyKey: {
+            type: "string",
+            minLength: 1,
+          },
+          connectorId: {
+            type: "string",
+            minLength: 1,
+          },
+          fromEmail: {
+            type: "string",
+          },
+          toEmail: {
+            type: "string",
+            minLength: 1,
+          },
+          subject: {
+            type: "string",
+            minLength: 1,
+          },
+          providerMessageId: {
+            type: "string",
+            minLength: 1,
+          },
+          providerThreadId: {
+            type: "string",
+          },
+          internetMessageId: {
+            type: "string",
+          },
+          sentAt: {
+            type: "string",
+            minLength: 1,
+          },
+          campaignId: {
+            type: "string",
+          },
+          contactId: {
+            type: "string",
+          },
+          runId: {
+            type: "string",
+          },
+        },
+        required: [
+          "auditId",
+          "idempotencyKey",
+          "connectorId",
+          "toEmail",
+          "subject",
+          "providerMessageId",
+          "sentAt",
+        ],
+        additionalProperties: true,
+      },
+    },
+    {
+      type: "@cinatra-ai/email:received-reply",
+      claim: "dedicated",
+      dispositions: {
+        projection: "artifact-safe",
+        pinnable: false,
+        snapshotPolicy: "metadata",
+        sensitivity: "normal",
+        mutability: "record",
+      },
+      schema: {
+        type: "object",
+        properties: {
+          connectorId: {
+            type: "string",
+            minLength: 1,
+          },
+          providerMessageId: {
+            type: "string",
+            minLength: 1,
+          },
+          providerThreadId: {
+            type: "string",
+          },
+          internetMessageId: {
+            type: "string",
+          },
+          fromEmail: {
+            type: "string",
+            minLength: 1,
+          },
+          subject: {
+            type: "string",
+            minLength: 1,
+          },
+          snippet: {
+            type: "string",
+          },
+          receivedAt: {
+            type: "string",
+            minLength: 1,
+          },
+          threadId: {
+            type: "string",
+          },
+          contactId: {
+            type: "string",
+          },
+          campaignId: {
+            type: "string",
+          },
+        },
+        required: [
+          "connectorId",
+          "providerMessageId",
+          "fromEmail",
+          "subject",
+          "receivedAt",
+        ],
+        additionalProperties: true,
+      },
+    },
+    {
+      type: "@cinatra-ai/email:recipient",
+      claim: "dedicated",
+      dispositions: {
+        projection: "none",
+        pinnable: false,
+        snapshotPolicy: "none",
+        sensitivity: "sensitive",
+        mutability: "record",
+      },
+      schema: {
+        type: "object",
+        properties: {
+          runId: {
+            type: "string",
+            minLength: 1,
+          },
+          connectorId: {
+            type: "string",
+          },
+          contactKey: {
+            type: "string",
+          },
+          email: {
+            type: "string",
+            minLength: 1,
+            pattern: "\\S",
+          },
+          campaignId: {
+            type: "string",
+          },
+          confirmed: {
+            type: "boolean",
+          },
+        },
+        required: ["runId", "email"],
+        additionalProperties: true,
+      },
+    },
+  ],
 };
