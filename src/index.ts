@@ -36,6 +36,22 @@ import type { SemanticArtifactManifest } from "@cinatra-ai/sdk-extensions";
 // Bytes-only matcher: text/markdown + text/plain. text/html is not in the LLM
 // capability registry.
 export const emailArtifactsManifest: SemanticArtifactManifest = {
+  // THE LIBRARY-ROW GLYPH (slot `listRow`, cinatra#3095). The artifacts library
+  // asks a claimed row's own extension what the row is; this pack answers with
+  // one mark per claimed kind (see `src/renderers/list-row.tsx`). The slot is an
+  // OPTION an extension may take — no gate requires it, and a row whose
+  // extension declares none keeps the host's generic mark. Mirrors
+  // `package.json` `cinatra.artifact.ui`, which is the manifest of record.
+  ui: {
+    abiVersion: 1,
+    sdkAbiRange: "^2.5.0",
+    renderers: {
+      listRow: {
+        entry: "./src/renderers/list-row.tsx",
+        propsApiVersion: 1,
+      },
+    },
+  },
   accepts: {
     file: {
       mimeTypes: ["text/markdown", "text/plain"],
