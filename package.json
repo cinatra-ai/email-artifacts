@@ -12,6 +12,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./src/renderers/campaign-recipients-review": "./src/renderers/campaign-recipients-review.tsx",
+    "./src/renderers/detail": "./src/renderers/detail.tsx",
     "./src/renderers/email-drafts-review": "./src/renderers/email-drafts-review.tsx",
     "./src/renderers/follow-up-cadence": "./src/renderers/follow-up-cadence.tsx",
     "./src/renderers/gmail-sender": "./src/renderers/gmail-sender.tsx",
@@ -154,6 +155,10 @@
         "abiVersion": 1,
         "sdkAbiRange": "^2.5.0",
         "renderers": {
+          "detail": {
+            "entry": "./src/renderers/detail.tsx",
+            "propsApiVersion": 1
+          },
           "listRow": {
             "entry": "./src/renderers/list-row.tsx",
             "propsApiVersion": 1
