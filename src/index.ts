@@ -36,6 +36,15 @@ import type { SemanticArtifactManifest } from "@cinatra-ai/sdk-extensions";
 // Bytes-only matcher: text/markdown + text/plain. text/html is not in the LLM
 // capability registry.
 export const emailArtifactsManifest: SemanticArtifactManifest = {
+  // THE ARTIFACT DISPLAYS THIS PACK SHIPS.
+  //
+  // `detail` is the MAIL DETAIL PANE — the email body display, registered for
+  // the pack's OWN object types and for no content form, so it never competes
+  // with a form provider for somebody else's markdown. It draws a draft body
+  // from the content channel's text projection and the two email record types
+  // from the object-backed projection, through one chrome (see
+  // `src/renderers/detail.tsx`).
+  //
   // THE LIBRARY-ROW GLYPH (slot `listRow`, cinatra#3095). The artifacts library
   // asks a claimed row's own extension what the row is; this pack answers with
   // one mark per claimed kind (see `src/renderers/list-row.tsx`). The slot is an
@@ -46,6 +55,10 @@ export const emailArtifactsManifest: SemanticArtifactManifest = {
     abiVersion: 1,
     sdkAbiRange: "^2.5.0",
     renderers: {
+      detail: {
+        entry: "./src/renderers/detail.tsx",
+        propsApiVersion: 1,
+      },
       listRow: {
         entry: "./src/renderers/list-row.tsx",
         propsApiVersion: 1,
