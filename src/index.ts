@@ -19,7 +19,9 @@ import type { SemanticArtifactManifest } from "@cinatra-ai/sdk-extensions";
 //   - email:recipient      [record] — a run-scoped delivery-target SNAPSHOT
 //                          (never a person/contact; CRM ids are connector-scoped
 //                          soft provenance only, no CRM writeback). `record`:
-//                          create-only, immutable.
+//                          create-only, immutable. It carries its run and an
+//                          address, a contact key, or both: a contact without an
+//                          address is recorded by its non-empty contact key.
 //
 // NO email:thread claim — thread views are correlation queries over the
 // sent/reply records, not an atomic artifact. NO campaign-bundle / send-attempt
@@ -279,7 +281,11 @@ export const emailArtifactsManifest: SemanticArtifactManifest = {
             type: "boolean",
           },
         },
-        required: ["runId", "email"],
+        required: ["runId"],
+        anyOf: [
+          { required: ["email"] },
+          { required: ["contactKey"], properties: { contactKey: { minLength: 1 } } },
+        ],
         additionalProperties: true,
       },
     },
