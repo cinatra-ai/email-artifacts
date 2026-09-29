@@ -34,6 +34,7 @@ import {
   type EmailDetailView,
   type EmailRecordKind,
 } from "./email-detail-contract";
+import { readEmailBodySender } from "./email-body-sender";
 
 export {
   EMAIL_DETAIL_GAP_SENTENCES,
@@ -189,16 +190,20 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
       return floor("invalid-content-projection");
     }
 
-    const rendered = bodyFrom(text.trim().length > 0 ? text : null);
+    // THE CONTENT NAMES ITS SENDING ACCOUNT in the head line before the
+    // message; the message after the head is what the pane renders, and a
+    // content that names none draws the named gap in the sender's place.
+    const parts = readEmailBodySender(text);
+    const rendered = bodyFrom(parts.body.trim().length > 0 ? parts.body : null);
     if ("reason" in rendered) return floor(rendered.reason);
 
     return {
       kind: "pane",
       recordKind,
-      // A TEXT PROJECTION CARRIES NO SENDING ACCOUNT. The message's words are
-      // all it holds, so the sending account is absent BY RIGHT here and the
-      // pane draws the named gap in its place.
-      sender: null,
+      sender:
+        parts.sender === null
+          ? null
+          : { ...parts.sender, initials: emailSenderInitials(parts.sender.name, parts.sender.address) },
       dateIso: str(artifact.createdAt),
       subject: str(artifact.title),
       body: rendered.body,
@@ -207,7 +212,9 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
       // markup all falls away in the sanitizer, both render to nothing — and an
       // editor that opened empty on either would send that emptiness back as
       // the whole document the moment the reader touched it.
-      editorText: text,
+      // The head is held apart and written back in front of every save.
+      editorText: parts.body,
+      editorHead: parts.head,
       objectSource: null,
       revisionId: contentRevisionId,
       truncated,
@@ -257,6 +264,7 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
     body: rendered.body,
     // AN OBJECT ROW CARRIES NO EDITABLE DOCUMENT TEXT: its substance is the row.
     editorText: null,
+    editorHead: "",
     objectSource: source,
     revisionId: source === "snapshot" ? (objectRevisionId as string) : null,
     truncated: false,

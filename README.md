@@ -19,3 +19,4 @@ Install this pack via the Cinatra marketplace. Once installed, upload a Markdown
 - Keep an addressable record of every meaningful send and inbound reply
 - Snapshot the confirmed delivery targets of a campaign run without writing back to a CRM
 - Attach any email artifact as reference context when briefing a drafting agent
+- Name the account that will send a draft, a name and an address, in one comment line marked `email-sender` before its message, written by the agent that writes the draft; the mail pane draws it as the sender block and writes it back as filed on an edit in place, and a draft without it stays valid and draws the state without a sender

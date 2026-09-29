@@ -121,6 +121,11 @@ export type EmailDetailView =
        *  the text the channel carried even where that text renders to no visible
        *  html at all. Null on the object arm, which carries no editable text. */
       editorText: string | null;
+      /** THE HEAD THE STORED TEXT OPENS WITH, exactly as stored — the line that
+       *  names the sending account — written back in front of every save, so an
+       *  edit of the body keeps the sender as it was filed. Empty where the
+       *  content names no sender, and on the object arm. */
+      editorHead: string;
       /** Which of the object channel's two arms this pane is drawing, and null
        *  on the text arm, which is a pinned revision and neither of the two. */
       objectSource: "live" | "snapshot" | null;

@@ -63,7 +63,8 @@ import {
   EMAIL_DETAIL_NOTICE_SENTENCES,
   emailDetailFloorMessage,
 } from "./email-detail-contract";
-import { resolveEmailDetailView } from "./email-detail-view";
+import { emailSenderInitials, resolveEmailDetailView } from "./email-detail-view";
+import { joinEmailBodyHead, readEmailBodySender, type EmailBodyParts } from "./email-body-sender";
 
 /** What the indicator is saying.
  *
@@ -120,6 +121,9 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
   // A STALE ANSWER MAY COME BACK CUT. The channel forbids saving a prefix over
   // a whole document, so an editor reloaded onto a truncated revision closes.
   const [reloadedTruncated, setReloadedTruncated] = useState(false);
+  // A NEWER REVISION LOADED UNDER THE EDITOR brings its own head: the pane
+  // draws that revision's sender, never the one it opened on.
+  const [reloaded, setReloaded] = useState<EmailBodyParts | null>(null);
   const [session, setSession] = useState<string | null>(sessionKey);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +144,10 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
   const base = useRef<string | null>(granted?.baseRevisionId ?? null);
   const grantRef = useRef(granted);
   grantRef.current = granted;
+  /** THE HEAD THIS EDITOR WRITES BACK in front of every change set — the line
+   *  that names the sending account, exactly as the revision it saves against
+   *  stores it — so an edit of the body keeps the sender as it was filed. */
+  const head = useRef<string>(pane?.editorHead ?? "");
 
   // A NEW SESSION STARTS EMPTY. Adjusting the state while rendering (rather
   // than in an effect) is what keeps a stale draft from being drawn for one
@@ -153,10 +161,12 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
     bounded.current = false;
     leaving.current = false;
     base.current = granted?.baseRevisionId ?? null;
+    head.current = pane?.editorHead ?? "";
     setSession(sessionKey);
     setDraft(null);
     setSaving("saved");
     setReloadedTruncated(false);
+    setReloaded(null);
   }
 
   const editable = pane?.editable === true && granted !== null && !reloadedTruncated;
@@ -187,7 +197,13 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
         pending.current = null;
         bounded.current = false;
         base.current = outcome.latestRevisionId;
-        setDraft(outcome.text);
+        {
+          // The newer revision's head moves in under the editor with it.
+          const parts = readEmailBodySender(outcome.text);
+          head.current = parts.head;
+          setReloaded(parts);
+          setDraft(parts.body);
+        }
         if (outcome.truncated) setReloadedTruncated(true);
         setSaving("reloaded");
         return;
@@ -216,7 +232,7 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
       // THE CAPABILITY, AT THE REVISION THIS EDITOR NOW HOLDS. Nothing else on
       // it is composed here — the address is the host's own.
       { ...grant, baseRevisionId: base.current ?? grant.baseRevisionId },
-      text,
+      joinEmailBodyHead(head.current, text),
       wasLeaving ? { leaving: true } : undefined,
     );
     inFlight.current = false;
@@ -286,6 +302,18 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
   }
 
   const dateLabel = pane.dateIso === null ? null : formatDate(pane.dateIso);
+  // THE SENDER THE CONTENT ON SCREEN NAMES: the reloaded revision's once a
+  // reload put its message in the editor, else the one the pane opened on (a
+  // cut reload closes the editor and the pane draws the opened message).
+  const sender =
+    reloaded === null || reloadedTruncated
+      ? pane.sender
+      : reloaded.sender === null
+        ? null
+        : {
+            ...reloaded.sender,
+            initials: emailSenderInitials(reloaded.sender.name, reloaded.sender.address),
+          };
   const bodyText = draft ?? pane.editorText ?? pane.body?.markdown ?? "";
 
   return (
@@ -310,7 +338,7 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
 
       <div className="p-3.5">
         <div data-region="sender-block" className="flex items-start gap-3">
-          {pane.sender === null ? (
+          {sender === null ? (
             <p data-region="sender-gap" className="min-w-0 flex-1 text-xs text-muted-foreground">
               {EMAIL_DETAIL_GAP_SENTENCES.sender}
             </p>
@@ -322,22 +350,22 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
                 data-region="avatar"
                 className="grid size-9 flex-none place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
               >
-                {pane.sender.initials}
+                {sender.initials}
               </span>
               <div className="min-w-0 flex-1">
                 <div data-region="sender-name" className="text-sm font-semibold text-foreground">
-                  {pane.sender.name ?? pane.sender.address}
+                  {sender.name ?? sender.address}
                 </div>
                 {/* THE ADDRESS, ON THE LINE RIGHT BENEATH THE NAME, and with no
                     prefix of any kind. It is the sending account's own — the
                     address the message goes to is a record of its own, which
                     projects nothing. */}
-                {pane.sender.address === null ? null : (
+                {sender.address === null ? null : (
                   <div
                     data-region="sender-address"
                     className="mt-0.5 font-mono text-xs text-muted-foreground"
                   >
-                    {pane.sender.address}
+                    {sender.address}
                   </div>
                 )}
               </div>
