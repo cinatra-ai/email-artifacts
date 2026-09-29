@@ -47,7 +47,7 @@
 // region above is drawn from the host-supplied, already access-checked props
 // snapshot, which is what lets this pane draw inside a third-party application.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
 import type { ArtifactRendererProps } from "@cinatra-ai/sdk-extensions";
@@ -265,6 +265,18 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
     [flush],
   );
 
+  // THE PANE DRAWS THE BODY WHOLE. On the artifact's own page the body sits in
+  // the editor, and the editor stands as tall as the words it holds — never a
+  // fixed box that hides the rest of the message behind a scroll of its own.
+  const editor = useRef<HTMLTextAreaElement | null>(null);
+  const editorText = draft ?? pane?.editorText ?? pane?.body?.markdown ?? "";
+  useLayoutEffect(() => {
+    const node = editor.current;
+    if (node === null) return;
+    node.style.height = "auto";
+    node.style.height = `${node.scrollHeight}px`;
+  }, [editorText, editable]);
+
   if (pane === null) {
     return (
       <p data-region="floor" className="text-sm text-muted-foreground">
@@ -383,11 +395,12 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
         ) : null}
         {editable ? (
           <textarea
+            ref={editor}
             data-region="body-editor"
             aria-label="Message body"
             value={bodyText}
             onChange={(event) => onEdit(event.target.value)}
-            className="min-h-40 w-full resize-y border-0 bg-transparent p-0 text-sm leading-relaxed text-foreground outline-none focus-visible:outline-none"
+            className="min-h-40 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-relaxed text-foreground outline-none focus-visible:outline-none"
           />
         ) : pane.body === null ? (
           <p data-region="body" data-gap="true" className="text-sm text-muted-foreground">
