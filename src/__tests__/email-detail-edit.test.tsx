@@ -104,14 +104,13 @@ describe("the subject and the body on the artifact's own page", () => {
     );
   });
 
-  it("offers no edit of the subject — that road is not one the host exposes", () => {
+  it("offers no edit of the subject where the capability does not admit the title", () => {
     const { container } = render(<EmailArtifactsDetail {...bodyProps({ edit: editableEdit })} />);
     const subject = container.querySelector('[data-region="subject"]') as HTMLElement;
     // NO EDITABLE CONTROL OF ANY SHAPE over the subject — not a textarea, not a
-    // single-line input, not a contenteditable region. The channel carries one
-    // whole document text with no field selector beside it, so a subject edit
-    // would store the subject AS the body; the pane therefore offers no
-    // affordance that suggests the road exists.
+    // single-line input, not a contenteditable region. `editableEdit` names no
+    // title field, so this capability admits the text alone; the pane therefore
+    // offers no affordance that suggests a title road it was not handed.
     expect(subject.tagName).not.toBe("TEXTAREA");
     expect(subject.tagName).not.toBe("INPUT");
     expect(subject.getAttribute("contenteditable")).toBeNull();

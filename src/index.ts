@@ -59,7 +59,7 @@ export const emailArtifactsManifest: SemanticArtifactManifest = {
     renderers: {
       detail: {
         entry: "./src/renderers/detail.tsx",
-        propsApiVersion: 1,
+        propsApiVersion: 4,
       },
       listRow: {
         entry: "./src/renderers/list-row.tsx",

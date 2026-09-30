@@ -14,8 +14,10 @@ import type { ArtifactRendererProps } from "@cinatra-ai/sdk-extensions";
 
 /** The props-contract version this display declares, and the only one it
  *  accepts a snapshot at. The manifest entry declares the same number, so the
- *  host resolves the display and builds the snapshot at one version. */
-export const EMAIL_DISPLAY_PROPS_API_VERSION = 1;
+ *  host resolves the display and builds the snapshot at one version. At version
+ *  4 the display reads the edit capability at channel version 2, which may
+ *  admit the title as its own field beside the text. */
+export const EMAIL_DISPLAY_PROPS_API_VERSION = 4;
 
 /** The pack's own object types, spelled out so the display and its manifest
  *  cannot drift about which rows it is drawn for. */
@@ -121,6 +123,11 @@ export type EmailDetailView =
        *  the text the channel carried even where that text renders to no visible
        *  html at all. Null on the object arm, which carries no editable text. */
       editorText: string | null;
+      /** THE HEAD THE STORED TEXT OPENS WITH, exactly as stored — the line that
+       *  names the sending account — written back in front of every save, so an
+       *  edit of the body keeps the sender as it was filed. Empty where the
+       *  content names no sender, and on the object arm. */
+      editorHead: string;
       /** Which of the object channel's two arms this pane is drawing, and null
        *  on the text arm, which is a pinned revision and neither of the two. */
       objectSource: "live" | "snapshot" | null;
@@ -131,6 +138,10 @@ export type EmailDetailView =
        *  artifact's own page (a granted capability), only for a draft body, and
        *  only over a text the channel carried whole. */
       editable: boolean;
+      /** Is the subject editable in the pane itself? True only where `editable`
+       *  is true AND the capability admits the title; the subject is then
+       *  stored as the artifact's title. Everywhere else it is drawn as text. */
+      subjectEditable: boolean;
     }
   | { kind: "floor"; reason: EmailDetailFloorReason };
 
