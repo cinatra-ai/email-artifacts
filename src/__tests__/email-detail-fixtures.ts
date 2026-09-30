@@ -15,6 +15,8 @@ import {
   type ArtifactEditCapability,
 } from "@cinatra-ai/sdk-extensions/artifact-edit-channel";
 
+import { EMAIL_DISPLAY_PROPS_API_VERSION } from "../renderers/email-detail-contract";
+
 export const REVISION_ID = "rev_4c21aa";
 
 export const BODY_MARKDOWN =
@@ -29,6 +31,32 @@ export const readOnlyEdit: ArtifactEditCapability = {
 export const editableEdit: ArtifactEditCapability = {
   kind: "editable",
   channelVersion: ARTIFACT_EDIT_CHANNEL_VERSION,
+  artifactId: "art_1",
+  baseRevisionId: REVISION_ID,
+  saveUrl: "/api/artifacts/art_1/edit",
+  idlePauseMs: ARTIFACT_EDIT_IDLE_PAUSE_MS,
+  capBytes: ARTIFACT_EDIT_TEXT_CAP_BYTES,
+};
+
+/** The same capability, admitting the title as its own field beside the text —
+ *  what the host mints on the artifact's own page for a display that declared
+ *  props version 4. */
+export const editableTitleEdit: ArtifactEditCapability = {
+  kind: "editable",
+  channelVersion: ARTIFACT_EDIT_CHANNEL_VERSION,
+  artifactId: "art_1",
+  baseRevisionId: REVISION_ID,
+  saveUrl: "/api/artifacts/art_1/edit",
+  idlePauseMs: ARTIFACT_EDIT_IDLE_PAUSE_MS,
+  capBytes: ARTIFACT_EDIT_TEXT_CAP_BYTES,
+  fields: ["text", "title"],
+};
+
+/** The same capability at edit-channel version 1, with no `fields` — what the
+ *  host hands a display that declared an older props version. */
+export const editableEditV1: ArtifactEditCapability = {
+  kind: "editable",
+  channelVersion: 1,
   artifactId: "art_1",
   baseRevisionId: REVISION_ID,
   saveUrl: "/api/artifacts/art_1/edit",
@@ -52,7 +80,7 @@ export function editableEditAt(baseRevisionId: string, artifactId = "art_1"): Ar
 
 function baseProps(objectType: string, artifactId = "art_1"): Omit<ArtifactRendererProps, "content" | "edit"> {
   return {
-    propsApiVersion: 1,
+    propsApiVersion: EMAIL_DISPLAY_PROPS_API_VERSION,
     artifact: {
       id: artifactId,
       title: "Re-connecting on Q3 priorities",

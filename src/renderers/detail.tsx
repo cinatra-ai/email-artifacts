@@ -26,22 +26,14 @@
 // composes none of its own. Where the same artifact is a review target the host
 // mints a refusal instead, and the pane is drawn read only by construction.
 //
-// THE SUBJECT IS DRAWN, NOT EDITED, AND THAT IS A MISSING HOST ROAD — recorded
-// here for the host half rather than invented around. The drawing asks for the
-// subject AND the body to be editable in place. The body is: the host's edit
-// channel carries it. The subject is NOT, because the channel has no road for
-// it and this pack composes none of its own:
-//
-//   * `ArtifactEditCapability` is sealed to an ARTIFACT (`artifactId`,
-//     `baseRevisionId`, one `saveUrl`) — never to a field of one.
-//   * `ArtifactEditRequest` is `{ channelVersion, baseRevisionId, text }` — ONE
-//     whole document text, with no field selector beside it. Posting the
-//     subject through it would store the subject AS the message body.
-//   * The subject the pane draws is `artifact.title` on the props snapshot,
-//     which the host projects as read-only row metadata.
-//
-// So the subject stays read-only in every surface until the host mints a road
-// for it, and the pane draws no affordance that would suggest otherwise.
+// THE SUBJECT IS EDITED IN PLACE WHERE THE CAPABILITY ADMITS THE TITLE. The
+// subject the pane draws is the artifact's title, and the host's edit channel
+// carries the title as its own field beside the text: one capability, one base,
+// one save address. Where the capability names the title the subject is a
+// single-line field in its own place, saved through the channel's title field
+// under the same pause, queue and moving base as the body. Everywhere else — an
+// older capability, a review target, a record — the subject is drawn as text,
+// and the pane draws no affordance that would suggest otherwise.
 //
 // A v1 renderer requests NO host ports and never fetches its content: every
 // region above is drawn from the host-supplied, already access-checked props
@@ -54,6 +46,7 @@ import type { ArtifactRendererProps } from "@cinatra-ai/sdk-extensions";
 import {
   ARTIFACT_EDIT_IDLE_PAUSE_MS,
   saveArtifactEdit,
+  saveArtifactTitleEdit,
   type ArtifactEditOutcome,
 } from "@cinatra-ai/sdk-extensions/artifact-edit-channel";
 
@@ -124,12 +117,22 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
   // A NEWER REVISION LOADED UNDER THE EDITOR brings its own head: the pane
   // draws that revision's sender, never the one it opened on.
   const [reloaded, setReloaded] = useState<EmailBodyParts | null>(null);
+  /** THE SUBJECT'S OWN DRAFT, null until the reader touches it or a reload
+   *  puts a newer title in its place. */
+  const [subjectDraft, setSubjectDraft] = useState<string | null>(null);
   const [session, setSession] = useState<string | null>(sessionKey);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
   /** The text the reader has written that the store has not answered for. */
   const pending = useRef<string | null>(null);
+  /** The subject the reader has written that the store has not answered for. */
+  const pendingTitle = useRef<string | null>(null);
+  /** The title the store last answered for — opened from the view's subject. */
+  const storedTitle = useRef<string | null>(pane?.subject ?? null);
+  /** A field whose last send did not go through: the other field's later save
+   *  must not read Saved over it. Cleared when that field is stored again. */
+  const unsaved = useRef<{ text: boolean; title: boolean }>({ text: false, title: false });
   /** Has the change set been BOUNDED yet — the idle pause elapsed, or the view
    *  going away? A bounded change set is ready to send; an unbounded one waits,
    *  which is what keeps one revision per thought rather than one per word. */
@@ -158,12 +161,16 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
       timer.current = null;
     }
     pending.current = null;
+    pendingTitle.current = null;
+    storedTitle.current = pane?.subject ?? null;
+    unsaved.current = { text: false, title: false };
     bounded.current = false;
     leaving.current = false;
     base.current = granted?.baseRevisionId ?? null;
     head.current = pane?.editorHead ?? "";
     setSession(sessionKey);
     setDraft(null);
+    setSubjectDraft(null);
     setSaving("saved");
     setReloadedTruncated(false);
     setReloaded(null);
@@ -171,18 +178,27 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
 
   const editable = pane?.editable === true && granted !== null && !reloadedTruncated;
 
-  /** What ONE answer does to the editor. `sent` is the text that answer is
-   *  about — the indicator may only read as stored when that text is still the
-   *  text on screen. */
-  const apply = useCallback((outcome: ArtifactEditOutcome, sent: string) => {
+  /** What ONE answer does to the editor. `sent` is the text (or, for `field`
+   *  "title", the subject) that answer is about — the indicator may only read
+   *  as stored when neither a text nor a title is still waiting to be sent. */
+  const apply = useCallback((outcome: ArtifactEditOutcome, sent: string, field: "text" | "title") => {
+    const settled = () =>
+      (pending.current === null || (field === "text" && pending.current === sent)) &&
+      (pendingTitle.current === null || (field === "title" && pendingTitle.current === sent));
+    const stored = (): SavingState =>
+      settled() ? (unsaved.current.text || unsaved.current.title ? "not-saved" : "saved") : "saving";
     switch (outcome.outcome) {
       case "saved":
         base.current = outcome.revisionId;
-        setSaving(pending.current === null || pending.current === sent ? "saved" : "saving");
+        if (field === "title") storedTitle.current = sent;
+        unsaved.current[field] = false;
+        setSaving(stored());
         return;
       case "unchanged":
         base.current = outcome.revisionId;
-        setSaving(pending.current === null || pending.current === sent ? "saved" : "saving");
+        if (field === "title") storedTitle.current = sent;
+        unsaved.current[field] = false;
+        setSaving(stored());
         return;
       case "stale":
         // A save onto a revision that moved on is REFUSED rather than written
@@ -195,6 +211,8 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
           timer.current = null;
         }
         pending.current = null;
+        pendingTitle.current = null;
+        unsaved.current = { text: false, title: false };
         bounded.current = false;
         base.current = outcome.latestRevisionId;
         {
@@ -204,10 +222,16 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
           setReloaded(parts);
           setDraft(parts.body);
         }
+        // The subject reloads too: to the title the answer carries, or — on a
+        // text change's answer, which carries none — to the title the store
+        // last answered for.
+        if ("title" in outcome) storedTitle.current = outcome.title ?? null;
+        setSubjectDraft(storedTitle.current ?? "");
         if (outcome.truncated) setReloadedTruncated(true);
         setSaving("reloaded");
         return;
       default:
+        unsaved.current[field] = true;
         setSaving("not-saved");
     }
   }, []);
@@ -220,24 +244,43 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
     if (grant === null) return;
     if (inFlight.current) return; // the answer in flight drains what waits.
     if (!bounded.current) return; // the pause has not elapsed yet.
+    const title = pendingTitle.current;
     const text = pending.current;
-    if (text === null) return;
+    if (title === null && text === null) return;
 
-    pending.current = null;
-    bounded.current = false;
+    // A PENDING TITLE GOES FIRST, then the text, each against the base the
+    // previous answer named. What is still pending after this send stays
+    // bounded, so the answer drains it.
     const wasLeaving = leaving.current;
-    leaving.current = false;
+    if (title !== null) {
+      pendingTitle.current = null;
+    } else {
+      pending.current = null;
+    }
+    if (pending.current === null && pendingTitle.current === null) {
+      bounded.current = false;
+      leaving.current = false;
+    }
     inFlight.current = true;
-    const outcome = await saveArtifactEdit(
-      // THE CAPABILITY, AT THE REVISION THIS EDITOR NOW HOLDS. Nothing else on
-      // it is composed here — the address is the host's own.
-      { ...grant, baseRevisionId: base.current ?? grant.baseRevisionId },
-      joinEmailBodyHead(head.current, text),
-      wasLeaving ? { leaving: true } : undefined,
-    );
-    inFlight.current = false;
-    apply(outcome, text);
-    if (pending.current !== null && bounded.current) await flush();
+    // THE CAPABILITY, AT THE REVISION THIS EDITOR NOW HOLDS. Nothing else on
+    // it is composed here — the address is the host's own.
+    const capability = { ...grant, baseRevisionId: base.current ?? grant.baseRevisionId };
+    const deps = wasLeaving ? { leaving: true } : undefined;
+    if (title !== null) {
+      const outcome = await saveArtifactTitleEdit(capability, title, deps);
+      inFlight.current = false;
+      apply(outcome, title, "title");
+    } else {
+      const outcome = await saveArtifactEdit(
+        capability,
+        joinEmailBodyHead(head.current, text as string),
+        deps,
+      );
+      inFlight.current = false;
+      apply(outcome, text as string, "text");
+    }
+    if (pending.current === null && pendingTitle.current === null) leaving.current = false;
+    if ((pending.current !== null || pendingTitle.current !== null) && bounded.current) await flush();
   }, [apply]);
 
   useEffect(
@@ -249,7 +292,7 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
         clearTimeout(timer.current);
         timer.current = null;
       }
-      if (pending.current === null) return;
+      if (pending.current === null && pendingTitle.current === null) return;
       bounded.current = true;
       leaving.current = true;
       // A save already in flight keeps the serialisation: it drains what waits
@@ -265,6 +308,29 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
       setDraft(text);
       setSaving("saving");
       pending.current = text;
+      bounded.current = false;
+      if (timer.current !== null) clearTimeout(timer.current);
+      const grant = grantRef.current;
+      const pause =
+        grant !== null && typeof grant.idlePauseMs === "number"
+          ? grant.idlePauseMs
+          : ARTIFACT_EDIT_IDLE_PAUSE_MS;
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        bounded.current = true;
+        void flush();
+      }, pause);
+    },
+    [flush],
+  );
+
+  // THE SUBJECT'S EDIT, under the SAME pause as the body's: a change to either
+  // field restarts the one pause, and the one queue sends both.
+  const onSubjectEdit = useCallback(
+    (title: string) => {
+      setSubjectDraft(title);
+      setSaving("saving");
+      pendingTitle.current = title;
       bounded.current = false;
       if (timer.current !== null) clearTimeout(timer.current);
       const grant = grantRef.current;
@@ -386,7 +452,17 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
           )}
         </div>
 
-        {pane.subject === null ? (
+        {pane.subjectEditable && editable ? (
+          <input
+            type="text"
+            data-region="subject-editor"
+            aria-label="Subject"
+            placeholder={EMAIL_DETAIL_GAP_SENTENCES.subject}
+            value={subjectDraft ?? pane.subject ?? ""}
+            onChange={(event) => onSubjectEdit(event.target.value)}
+            className="mt-3 w-full border-0 bg-transparent p-0 text-sm font-semibold leading-snug text-foreground outline-none focus-visible:outline-none"
+          />
+        ) : pane.subject === null ? (
           <p data-region="subject" data-gap="true" className="mt-3 text-sm text-muted-foreground">
             {EMAIL_DETAIL_GAP_SENTENCES.subject}
           </p>

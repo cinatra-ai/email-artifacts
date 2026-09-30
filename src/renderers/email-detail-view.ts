@@ -16,7 +16,10 @@
 // on the OBJECT projection — the row's own structured data, live or snapshot —
 // and are drawn through the same chrome, read only throughout.
 
-import { isArtifactEditGranted } from "@cinatra-ai/sdk-extensions/artifact-edit-channel";
+import {
+  isArtifactEditGranted,
+  isArtifactTitleEditGranted,
+} from "@cinatra-ai/sdk-extensions/artifact-edit-channel";
 import { renderSanitizedMarkdown } from "@cinatra-ai/sdk-extensions/markdown-sanitizer";
 import { ARTIFACT_CONTENT_CHANNEL_VERSION } from "@cinatra-ai/sdk-extensions/artifact-content-channel";
 import type { ArtifactRendererProps } from "@cinatra-ai/sdk-extensions";
@@ -162,6 +165,7 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
   if (kind === "configuration" || kind === "page") return floor("content-unsupported-form");
 
   const granted = isArtifactEditGranted(snapshot.edit);
+  const titleGranted = isArtifactTitleEditGranted(snapshot.edit);
 
   if (kind === "text") {
     const text = projection.text;
@@ -221,6 +225,9 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
       // A RECORD IS NEVER EDITED, whatever the surface minted: a sent message
       // and a reply are read, not drafted.
       editable: recordKind === "body" && granted && !truncated,
+      // THE SUBJECT TAKES AN EDIT only where the body does AND the capability
+      // admits the title; an older capability keeps the subject drawn as text.
+      subjectEditable: recordKind === "body" && granted && !truncated && titleGranted,
     };
   }
 
@@ -272,5 +279,6 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
     // against a pinned representation; an object row's substance is the row
     // itself, and there is no road on the contract that writes one field of it.
     editable: false,
+    subjectEditable: false,
   };
 }
