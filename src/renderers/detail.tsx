@@ -462,6 +462,7 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
             value={subjectDraft ?? pane.subject ?? ""}
             onChange={(event) => onSubjectEdit(event.target.value)}
             className="mt-3 w-full border-0 bg-transparent p-0 text-sm font-semibold leading-snug text-foreground outline-none focus-visible:outline-none"
+            style={{ backgroundColor: "transparent" }}
           />
         ) : pane.subject === null ? (
           <p data-region="subject" data-gap="true" className="mt-3 text-sm text-muted-foreground">
@@ -506,6 +507,7 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
             value={bodyText}
             onChange={(event) => onEdit(event.target.value)}
             className="min-h-40 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-relaxed text-foreground outline-none focus-visible:outline-none"
+            style={{ backgroundColor: "transparent" }}
           />
         ) : pane.body === null ? (
           <p data-region="body" data-gap="true" className="text-sm text-muted-foreground">
