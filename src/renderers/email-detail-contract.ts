@@ -2,8 +2,9 @@
 // be showing, and what it says when it is showing nothing.
 //
 // SANITIZER-FREE, DELIBERATELY. The view leaf beside this module reaches the
-// SDK's shared markdown sanitizer; this module reaches nothing at all, so the
-// contract can be read (and asserted) without pulling a parser in behind it.
+// SDK's shared markdown sanitizer through the html module; this module reaches
+// nothing at all, so the contract can be read (and asserted) without pulling a
+// parser in behind it.
 //
 // The drawn surface is the ratified drawing's mail detail pane: the sender
 // block — the initials avatar, the name, and the address on the line right

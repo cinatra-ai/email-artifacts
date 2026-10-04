@@ -1,15 +1,16 @@
 // The decision leaf the mail detail pane draws from: it maps the host's
-// authorized props snapshot to exactly one of two outcomes, and it is the ONE
-// module in this package that reaches the sanitizer.
+// authorized props snapshot to exactly one of two outcomes. It decides whether
+// to ask for the body's html; the html module beside it makes that html.
 //
 //   `pane`  — the message, region by region, with its body already rendered to
 //             safe html by the SDK's shared markdown sanitizer.
 //   `floor` — a NAMED reason there is nothing to draw. Never blank, never a
 //             throw: a display that threw would take the surface down with it.
 //
-// NOTHING IS SANITIZED HERE. The html comes from the one shared sanitizer in
-// the SDK leaf and from nowhere else; this module chooses whether to ask for it
-// and what to say when there is nothing to ask about.
+// NOTHING IS SANITIZED HERE. The html comes from the html module beside this
+// one, the one module of the pack that reaches the shared sanitizer; this
+// module decides whether to ask for it and what to say when there is nothing
+// to ask about.
 //
 // TWO PROJECTIONS, ONE PANE. A draft body arrives on the content channel's TEXT
 // projection — the markdown of the message. The two email record types arrive
@@ -20,7 +21,6 @@ import {
   isArtifactEditGranted,
   isArtifactTitleEditGranted,
 } from "@cinatra-ai/sdk-extensions/artifact-edit-channel";
-import { renderSanitizedMarkdown } from "@cinatra-ai/sdk-extensions/markdown-sanitizer";
 import { ARTIFACT_CONTENT_CHANNEL_VERSION } from "@cinatra-ai/sdk-extensions/artifact-content-channel";
 import type { ArtifactRendererProps } from "@cinatra-ai/sdk-extensions";
 
@@ -38,6 +38,7 @@ import {
   type EmailRecordKind,
 } from "./email-detail-contract";
 import { readEmailBodySender } from "./email-body-sender";
+import { renderEmailBodyHtml } from "./email-body-html";
 
 export {
   EMAIL_DETAIL_GAP_SENTENCES,
@@ -112,7 +113,7 @@ function bodyFrom(markdown: string | null): { body: EmailDetailBody | null } | {
   if (markdown === null) return { body: null };
   let html: string;
   try {
-    html = renderSanitizedMarkdown(markdown, { demoteHeadings: true });
+    html = renderEmailBodyHtml(markdown);
   } catch {
     return { reason: "render-failed" };
   }

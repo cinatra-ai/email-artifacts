@@ -57,6 +57,7 @@ import {
   emailDetailFloorMessage,
 } from "./email-detail-contract";
 import { emailSenderInitials, resolveEmailDetailView } from "./email-detail-view";
+import { EmailBodyHtml } from "./email-body-html";
 import { joinEmailBodyHead, readEmailBodySender, type EmailBodyParts } from "./email-body-sender";
 
 /** What the indicator is saying.
@@ -511,13 +512,7 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
             {EMAIL_DETAIL_GAP_SENTENCES.body}
           </p>
         ) : (
-          // The html is the SDK sanitizer's own output and nothing else — the
-          // one boundary this pack runs somebody else's document through.
-          <div
-            data-region="body"
-            className="text-sm leading-relaxed text-foreground [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0"
-            dangerouslySetInnerHTML={{ __html: pane.body.html }}
-          />
+          <EmailBodyHtml html={pane.body.html} />
         )}
       </div>
     </section>
