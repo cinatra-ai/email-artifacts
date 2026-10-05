@@ -98,14 +98,22 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
   const capability = props?.edit;
   const granted = capability?.kind === "editable" ? capability : null;
 
-  // THE EDIT SESSION — one artifact, opened at one revision. Everything the
-  // editor holds (the reader's text, the queue, the timer, the base revision it
-  // saves against) belongs to THIS session and to no other: a display instance
-  // that is handed a different artifact, or the same artifact reopened at a
-  // different revision, must not carry one session's unsent words into the
-  // next, and must never post them under the next one's capability.
+  // A revision refresh can arrive while the reader is typing. It changes the
+  // save base, but it must not erase unsent words. A different artifact or
+  // editing authority is a separate session and never inherits the old queue.
   const sessionKey =
-    granted === null ? null : `${props?.artifact?.id ?? ""}::${granted.baseRevisionId}`;
+    granted === null || pane?.editable !== true
+      ? null
+      : JSON.stringify([
+          typeof props.artifact.id === "string" ? props.artifact.id : null,
+          typeof granted.artifactId === "string" ? granted.artifactId : null,
+          granted.saveUrl,
+          granted.channelVersion,
+          pane.subjectEditable,
+          typeof granted.capBytes === "number" ? granted.capBytes : null,
+          typeof granted.idlePauseMs === "number" ? granted.idlePauseMs : null,
+        ]);
+  const revisionKey = granted?.baseRevisionId ?? null;
 
   // THE EDITOR'S OWN TEXT, once the reader has touched it or a save came back
   // with a newer revision to reload onto. Until then the pane draws what the
@@ -121,10 +129,11 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
   /** THE SUBJECT'S OWN DRAFT, null until the reader touches it or a reload
    *  puts a newer title in its place. */
   const [subjectDraft, setSubjectDraft] = useState<string | null>(null);
-  const [session, setSession] = useState<string | null>(sessionKey);
+  const [session, setSession] = useState({ key: sessionKey, revision: revisionKey });
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inFlight = useRef(false);
+  const generation = useRef(0);
+  const inFlight = useRef<{ generation: number; field: "text" | "title" } | null>(null);
   /** The text the reader has written that the store has not answered for. */
   const pending = useRef<string | null>(null);
   /** The subject the reader has written that the store has not answered for. */
@@ -153,10 +162,16 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
    *  stores it — so an edit of the body keeps the sender as it was filed. */
   const head = useRef<string>(pane?.editorHead ?? "");
 
-  // A NEW SESSION STARTS EMPTY. Adjusting the state while rendering (rather
-  // than in an effect) is what keeps a stale draft from being drawn for one
-  // frame under the next artifact's metadata.
-  if (sessionKey !== session) {
+  // Adjust during rendering so another artifact never draws the old draft.
+  // On a same-authority revision refresh, keep dirty fields as Not saved and
+  // cancel their old sends: only a new explicit edit can write to the new base.
+  if (sessionKey !== session.key || revisionKey !== session.revision) {
+    const retain = sessionKey !== null && sessionKey === session.key;
+    const dirty = {
+      text: retain && (unsaved.current.text || pending.current !== null || inFlight.current?.field === "text"),
+      title: retain && (unsaved.current.title || pendingTitle.current !== null || inFlight.current?.field === "title"),
+    };
+    generation.current += 1;
     if (timer.current !== null) {
       clearTimeout(timer.current);
       timer.current = null;
@@ -164,15 +179,18 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
     pending.current = null;
     pendingTitle.current = null;
     storedTitle.current = pane?.subject ?? null;
-    unsaved.current = { text: false, title: false };
+    unsaved.current = dirty;
     bounded.current = false;
     leaving.current = false;
     base.current = granted?.baseRevisionId ?? null;
     head.current = pane?.editorHead ?? "";
-    setSession(sessionKey);
-    setDraft(null);
-    setSubjectDraft(null);
-    setSaving("saved");
+    // An old artifact's response cannot release a new artifact's own flight.
+    // A refresh of this artifact still waits for its existing request to end.
+    if (!retain) inFlight.current = null;
+    setSession({ key: sessionKey, revision: revisionKey });
+    if (!dirty.text) setDraft(null);
+    if (!dirty.title) setSubjectDraft(null);
+    setSaving(dirty.text || dirty.title ? "not-saved" : "saved");
     setReloadedTruncated(false);
     setReloaded(null);
   }
@@ -262,24 +280,20 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
       bounded.current = false;
       leaving.current = false;
     }
-    inFlight.current = true;
+    const flight = { generation: generation.current, field: title !== null ? "title" as const : "text" as const };
+    inFlight.current = flight;
     // THE CAPABILITY, AT THE REVISION THIS EDITOR NOW HOLDS. Nothing else on
     // it is composed here — the address is the host's own.
     const capability = { ...grant, baseRevisionId: base.current ?? grant.baseRevisionId };
     const deps = wasLeaving ? { leaving: true } : undefined;
-    if (title !== null) {
-      const outcome = await saveArtifactTitleEdit(capability, title, deps);
-      inFlight.current = false;
-      apply(outcome, title, "title");
-    } else {
-      const outcome = await saveArtifactEdit(
-        capability,
-        joinEmailBodyHead(head.current, text as string),
-        deps,
-      );
-      inFlight.current = false;
-      apply(outcome, text as string, "text");
-    }
+    const outcome = title !== null
+      ? await saveArtifactTitleEdit(capability, title, deps)
+      : await saveArtifactEdit(capability, joinEmailBodyHead(head.current, text as string), deps);
+    // Bind every answer to the session/revision it was sent from. A late saved
+    // or stale answer cannot mark retained words Saved or reload over a refresh.
+    if (inFlight.current !== flight) return;
+    inFlight.current = null;
+    if (generation.current === flight.generation) apply(outcome, title ?? text as string, flight.field);
     if (pending.current === null && pendingTitle.current === null) leaving.current = false;
     if ((pending.current !== null || pendingTitle.current !== null) && bounded.current) await flush();
   }, [apply]);
