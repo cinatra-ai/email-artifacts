@@ -286,6 +286,7 @@ export const emailArtifactsManifest: SemanticArtifactManifest = {
           { required: ["email"] },
           { required: ["contactKey"], properties: { contactKey: { minLength: 1 } } },
         ],
+        "x-cinatra-identity": ["runId", "contactKey"],
         additionalProperties: true,
       },
     },
