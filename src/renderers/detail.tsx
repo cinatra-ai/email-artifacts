@@ -397,6 +397,24 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
           };
   const bodyText = draft ?? pane.editorText ?? pane.body?.markdown ?? "";
 
+  // The host supplies this decision only for the authorized frozen review.
+  // It is prospective mail wording, never a claim that delivery took place.
+  // Keep the ordinary mail date and every legacy v4 reading unchanged.
+  const decidedAt = props.review?.decidedAt;
+  const continuedReading =
+    props.propsApiVersion === 5 &&
+    props.review?.reading === "continued" &&
+    typeof decidedAt === "string" &&
+    Number.isFinite(Date.parse(decidedAt)) &&
+    new Date(decidedAt).toISOString() === decidedAt &&
+    pane.recordKind === "body" &&
+    !editable &&
+    !pane.truncated &&
+    pane.body !== null &&
+    typeof pane.revisionId === "string" &&
+    pane.revisionId.length > 0 &&
+    props.representation?.revisionId === pane.revisionId;
+
   return (
     <section data-region="pane" aria-label="Message" className="text-foreground">
       {editable ? (
@@ -531,6 +549,11 @@ export default function EmailArtifactsDetail(props: ArtifactRendererProps): Reac
           <EmailBodyHtml html={pane.body.html} />
         )}
       </div>
+      {continuedReading ? (
+        <p data-region="continued-reading" className="px-3.5 py-[9px] text-xs text-muted-foreground">
+          These are the words that will be sent.
+        </p>
+      ) : null}
     </section>
   );
 }
