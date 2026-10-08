@@ -136,3 +136,115 @@ describe("the mail detail pane — the drawn regions", () => {
     expect(screen.queryByText(/continue/i)).toBeNull();
   });
 });
+
+// A continuation qualifies the exact read-only words, not a delivery result.
+// Render the real display from the declared host snapshot; no core renderer,
+// auth/store or tool-effect substitute supplies the sentence.
+const CONTINUED_WORDS = "These are the words that will be sent.";
+const DECIDED_AT = "2026-10-08T05:00:00.000Z";
+const continuedProps = () => ({
+  ...bodyProps(),
+  propsApiVersion: 5,
+  review: { reading: "continued" as const, openLive: null, decidedAt: DECIDED_AT },
+});
+
+describe("the continued email reading", () => {
+  it.each(["denied", "unrecorded"])("does not qualify a %s reading", (reading) => {
+    const props = Object.assign(continuedProps(), { review: JSON.parse(JSON.stringify({
+      reading, openLive: null, decidedAt: DECIDED_AT,
+    })) });
+    render(<EmailArtifactsDetail {...props} />);
+    expect(region("body")?.textContent).toContain("following up on the pilot");
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+  });
+
+  it.each(["@cinatra-ai/email:sent-email", "@cinatra-ai/email:received-reply"])(
+    "does not promise a future send for a %s record", (objectType) => {
+      const props = { ...objectProps(objectType, {
+        bodyMarkdown: BODY_MARKDOWN, sentAt: "2026-08-14T12:12:00.000Z",
+      }, { source: "snapshot" }), propsApiVersion: 5, review: continuedProps().review };
+      render(<EmailArtifactsDetail {...props} />);
+      expect(region("body")?.textContent).toContain("following up on the pilot");
+      expect(region("date")?.textContent).toContain("Aug");
+      expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+    },
+  );
+
+  it("names the continued pinned words while retaining their body and ordinary date", () => {
+    const props = continuedProps();
+    render(<EmailArtifactsDetail {...props} />);
+    expect(screen.getByText(CONTINUED_WORDS)).toBeTruthy();
+    const body = region("body") as Node;
+    const sentence = region("continued-reading") as Node;
+    expect((region("sender-block") as Node).compareDocumentPosition(body) &
+      Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(body.compareDocumentPosition(sentence) &
+      Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(region("body")?.textContent).toContain("following up on the pilot");
+    expect(region("date")?.textContent).toContain("Aug");
+    expect(region("date")?.textContent).not.toContain("Oct");
+    expect(screen.queryByText(/delivered/i)).toBeNull();
+    expect(document.querySelector("button")).toBeNull();
+  });
+
+  it("admits the exact frozen object-body revision through the same display", () => {
+    const props = { ...objectProps("@cinatra-ai/email:body", {
+      subject: "Frozen words", bodyMarkdown: BODY_MARKDOWN,
+    }, { source: "snapshot" }), propsApiVersion: 5, review: continuedProps().review };
+    render(<EmailArtifactsDetail {...props} />);
+    expect(screen.getByText(CONTINUED_WORDS)).toBeTruthy();
+    expect(region("source")?.getAttribute("data-source")).toBe("snapshot");
+  });
+
+  it("keeps an ordinary v4 pane unchanged and does not read a new decision field", () => {
+    const props = { ...continuedProps(), propsApiVersion: 4 };
+    render(<EmailArtifactsDetail {...props} />);
+    expect(region("body")?.textContent).toContain("following up on the pilot");
+    expect(region("date")?.textContent).toContain("Aug");
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+  });
+
+  it("does not label pending or absent review words as continued", () => {
+    const props = continuedProps();
+    const { rerender } = render(<EmailArtifactsDetail {...props} review={undefined} />);
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+    rerender(<EmailArtifactsDetail {...props} review={{ reading: "pending", openLive: null }} />);
+    expect(region("body")?.textContent).toContain("following up on the pilot");
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+  });
+
+  it.each([undefined, null, "", "not-a-date", "2026-10-08", "2026-02-30T05:00:00.000Z"])(
+    "suppresses the sentence for an absent or invalid decision instant (%s)", (decidedAt) => {
+      const props = Object.assign(continuedProps(), { review: {
+        reading: "continued", openLive: null, decidedAt,
+      } });
+      render(<EmailArtifactsDetail {...props} />);
+      expect(region("body")?.textContent).toContain("following up on the pilot");
+      expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+    },
+  );
+
+  it("does not qualify live object content or a different frozen revision", () => {
+    const props = { ...objectProps("@cinatra-ai/email:body", {
+      subject: "Moving words", bodyMarkdown: BODY_MARKDOWN,
+    }), propsApiVersion: 5, review: continuedProps().review };
+    const { rerender } = render(<EmailArtifactsDetail {...props} />);
+    expect(region("source")?.getAttribute("data-source")).toBe("live");
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+    const frozen = { ...objectProps("@cinatra-ai/email:body", {
+      subject: "Frozen words", bodyMarkdown: BODY_MARKDOWN,
+    }, { source: "snapshot" }), propsApiVersion: 5, review: props.review };
+    rerender(<EmailArtifactsDetail {...frozen}
+      representation={{ mime: "text/markdown", revisionId: "another-revision" }} />);
+    expect(region("body")?.textContent).toContain("following up on the pilot");
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+  });
+
+  it("does not describe a cut message as the words that will be sent", () => {
+    const props = { ...bodyProps({ truncated: true }), propsApiVersion: 5,
+      review: continuedProps().review };
+    render(<EmailArtifactsDetail {...props} />);
+    expect(region("truncation-notice")).toBeTruthy();
+    expect(screen.queryByText(CONTINUED_WORDS)).toBeNull();
+  });
+});

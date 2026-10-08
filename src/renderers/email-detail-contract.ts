@@ -13,12 +13,15 @@
 
 import type { ArtifactRendererProps } from "@cinatra-ai/sdk-extensions";
 
-/** The props-contract version this display declares, and the only one it
- *  accepts a snapshot at. The manifest entry declares the same number, so the
+/** The current props-contract version this display declares. It also accepts
+ *  an unchanged version 4 snapshot without the new continued-reading sentence.
+ *  The manifest entry declares the same number, so the
  *  host resolves the display and builds the snapshot at one version. At version
  *  4 the display reads the edit capability at channel version 2, which may
  *  admit the title as its own field beside the text. */
-export const EMAIL_DISPLAY_PROPS_API_VERSION = 4;
+// Version 5 admits the host-authenticated continued decision instant.
+// Version 4 remains a supported legacy reading and carries no new sentence.
+export const EMAIL_DISPLAY_PROPS_API_VERSION = 5;
 
 /** The pack's own object types, spelled out so the display and its manifest
  *  cannot drift about which rows it is drawn for. */

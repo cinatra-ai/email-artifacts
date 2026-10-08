@@ -129,9 +129,11 @@ export function resolveEmailDetailView(props: EmailDetailRendererInput): EmailDe
 
   const snapshot = props as Partial<ArtifactRendererProps>;
 
-  // STRICT, in both directions: a snapshot that does not SAY which version it
-  // was built at is as unreadable as one built at another version.
-  if (snapshot.propsApiVersion !== EMAIL_DISPLAY_PROPS_API_VERSION) return floor("props-version");
+  // The explicit window admits current v5 and the unchanged legacy v4 reading.
+  // An absent or unsupported version is not an admitted props snapshot.
+  if (snapshot.propsApiVersion !== 4 && snapshot.propsApiVersion !== EMAIL_DISPLAY_PROPS_API_VERSION) {
+    return floor("props-version");
+  }
 
   const artifact = snapshot.artifact;
   if (artifact === null || artifact === undefined || typeof artifact !== "object") {

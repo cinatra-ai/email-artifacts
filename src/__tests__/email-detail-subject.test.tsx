@@ -212,10 +212,10 @@ describe("the subject on the artifact's own page", () => {
     expect(subject.textContent).toBe("Re-connecting on Q3 priorities");
   });
 
-  it("T8 declares props contract version 4, and a snapshot at version 4 draws the pane", () => {
-    expect(EMAIL_DISPLAY_PROPS_API_VERSION).toBe(4);
+  it("T8 declares props contract version 5, and a snapshot at version 4 draws the pane", () => {
+    expect(EMAIL_DISPLAY_PROPS_API_VERSION).toBe(5);
     const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8"));
-    expect(pkg.cinatra.artifact.ui.renderers.detail.propsApiVersion).toBe(4);
+    expect(pkg.cinatra.artifact.ui.renderers.detail.propsApiVersion).toBe(5);
     const { container } = render(
       <EmailArtifactsDetail {...{ ...bodyProps({ edit: editableTitleEdit }), propsApiVersion: 4 }} />,
     );
