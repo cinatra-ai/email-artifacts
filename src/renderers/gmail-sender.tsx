@@ -1,13 +1,13 @@
 "use client";
 
 import {
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
-import { Label } from "../components/ui/label";
+} from "@cinatra-ai/design-primitives";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 
 // COMPONENT-ONLY relocation (cinatra#1625 S8/M3, ruling 133-1): the
