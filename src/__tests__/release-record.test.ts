@@ -66,7 +66,7 @@ describe("release record of the host-shared primitives migration", () => {
     expect(manifest().version).toBe("0.1.4");
   });
 
-  it("(2) opens the changelog with a dated v0.1.4 heading", () => {
+  it("(2) opens the changelog with the dated heading of this release", () => {
     const file = path.join(REPO_ROOT, "CHANGELOG.md");
     expect(existsSync(file)).toBe(true);
     const text = readFileSync(file, "utf8");
@@ -79,7 +79,7 @@ describe("release record of the host-shared primitives migration", () => {
     expect(date <= new Date().toISOString().slice(0, 10)).toBe(true);
   });
 
-  it("(3) carries exactly the two lines of the v0.1.4 section, in order", () => {
+  it("(3) carries exactly the two lines of this release's section, in order", () => {
     const text = readFileSync(path.join(REPO_ROOT, "CHANGELOG.md"), "utf8");
     expect(firstSection(text).body).toEqual(SECTION_BODY);
   });
