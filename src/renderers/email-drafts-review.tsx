@@ -97,6 +97,17 @@ export function extractDraftSnapshot(value: unknown): NormalizedDraft[] {
   }));
 }
 
+/**
+ * The heading of a draft card, as the drawing heads it: the recipient's
+ * address, else the recipient's name, else "Unknown recipient". An address or
+ * a name that is empty or only white space is no address or name: a draft for
+ * a contact without an address can carry an empty address beside the name.
+ */
+export function recipientHeading(draft: Pick<NormalizedDraft, "recipientEmail" | "recipientName">): string {
+  const present = (text: string | null) => (typeof text === "string" && text.trim() !== "" ? text : null);
+  return present(draft.recipientEmail) ?? present(draft.recipientName) ?? "Unknown recipient";
+}
+
 function resolveCampaignId(value: unknown): string | undefined {
   if (!value || typeof value !== "object") return undefined;
   const v = value as Record<string, unknown>;
@@ -282,7 +293,7 @@ export function EmailDraftsReviewRenderer({
           <div key={draft.id} className="soft-panel flex flex-col gap-3 p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground truncate">
-                {draft.recipientEmail ?? draft.recipientName ?? "Unknown recipient"}
+                {recipientHeading(draft)}
               </span>
               {typeof draft.followUpDay === "number" ? (
                 <span className="text-xs text-muted-foreground shrink-0">
