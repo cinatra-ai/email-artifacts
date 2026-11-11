@@ -5,6 +5,7 @@ import {
   EmailDraftsReviewRenderer,
   extractDraftSnapshot,
   buildResumePayload,
+  recipientHeading,
 } from "../renderers/email-drafts-review";
 
 const draftBundle = {
@@ -176,5 +177,43 @@ describe("EmailDraftsReviewRenderer", () => {
     // No additional emit / publish — the content is unchanged.
     expect(onChange.mock.calls.length).toBe(onChangeAfterMount);
     expect(onHitlContextChange.mock.calls.length).toBe(onCtxAfterMount);
+  });
+});
+
+// A draft for a seeded contact with a name but no address: the drafting agent
+// saves it with an empty address beside the name - cinatra-ai/cinatra#4504.
+// The drawing (app-artifact-review, the email gate fields) heads a draft by the
+// address, else the name, else "Unknown recipient", so a blank address or name
+// is no address or name.
+describe("recipient heading", () => {
+  const draftWith = (recipientEmail: string | null, recipientName: string | null) => ({
+    draftBundle: {
+      draftedEmails: [
+        { recipientId: "r-1", recipientName, recipientEmail, subject: "Hello", body: "Body" },
+      ],
+    },
+  });
+
+  it("heads a draft by its address, else its name, else Unknown recipient", () => {
+    expect(recipientHeading({ recipientEmail: "ada@example.com", recipientName: "Ada" })).toBe("ada@example.com");
+    expect(recipientHeading({ recipientEmail: null, recipientName: "Ada" })).toBe("Ada");
+    expect(recipientHeading({ recipientEmail: null, recipientName: null })).toBe("Unknown recipient");
+  });
+
+  it("reads an empty or blank address or name as absent", () => {
+    expect(recipientHeading({ recipientEmail: "", recipientName: "Ben" })).toBe("Ben");
+    expect(recipientHeading({ recipientEmail: "   ", recipientName: "Ben" })).toBe("Ben");
+    expect(recipientHeading({ recipientEmail: "", recipientName: "" })).toBe("Unknown recipient");
+    expect(recipientHeading({ recipientEmail: " ", recipientName: "\t" })).toBe("Unknown recipient");
+  });
+
+  it("draws the name for a saved draft whose address is empty", () => {
+    render(<EmailDraftsReviewRenderer {...baseProps({ value: draftWith("", "Ben") })} />);
+    expect(screen.getByText("Ben")).toBeTruthy();
+  });
+
+  it("draws Unknown recipient for a saved draft whose address and name are empty", () => {
+    render(<EmailDraftsReviewRenderer {...baseProps({ value: draftWith("", "") })} />);
+    expect(screen.getByText("Unknown recipient")).toBeTruthy();
   });
 });

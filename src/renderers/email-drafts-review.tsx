@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Textarea } from "../components/ui/textarea";
+import { Button, Input, Label, Textarea } from "@cinatra-ai/design-primitives";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 
 // Pure snapshot -> onChange renderer for the RE-ENTRANT drafts / follow-ups
@@ -98,6 +95,17 @@ export function extractDraftSnapshot(value: unknown): NormalizedDraft[] {
     body: String(d.body ?? ""),
     ...(typeof d.followUpDay === "number" ? { followUpDay: d.followUpDay } : {}),
   }));
+}
+
+/**
+ * The heading of a draft card, as the drawing heads it: the recipient's
+ * address, else the recipient's name, else "Unknown recipient". An address or
+ * a name that is empty or only white space is no address or name: a draft for
+ * a contact without an address can carry an empty address beside the name.
+ */
+export function recipientHeading(draft: Pick<NormalizedDraft, "recipientEmail" | "recipientName">): string {
+  const present = (text: string | null) => (typeof text === "string" && text.trim() !== "" ? text : null);
+  return present(draft.recipientEmail) ?? present(draft.recipientName) ?? "Unknown recipient";
 }
 
 function resolveCampaignId(value: unknown): string | undefined {
@@ -285,7 +293,7 @@ export function EmailDraftsReviewRenderer({
           <div key={draft.id} className="soft-panel flex flex-col gap-3 p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground truncate">
-                {draft.recipientEmail ?? draft.recipientName ?? "Unknown recipient"}
+                {recipientHeading(draft)}
               </span>
               {typeof draft.followUpDay === "number" ? (
                 <span className="text-xs text-muted-foreground shrink-0">

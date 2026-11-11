@@ -40,20 +40,23 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../components/ui/button";
 import { MailIcon } from "lucide-react";
-import { Input } from "../components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../components/ui/input-group";
-import { Field, FieldLabel } from "../components/ui/field";
-import { Label } from "../components/ui/label";
-import { Checkbox } from "../components/ui/checkbox";
 import {
+  Button,
+  Checkbox,
+  Field,
+  FieldLabel,
+  Input,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "@cinatra-ai/design-primitives";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 
 // ---------------------------------------------------------------------------

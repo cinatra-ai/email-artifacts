@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../components/ui/button";
+import { Button } from "@cinatra-ai/design-primitives";
 import { Trash2, Undo2, Redo2 } from "lucide-react";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 

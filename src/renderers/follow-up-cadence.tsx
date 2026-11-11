@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
+import { Button, Input, Label } from "@cinatra-ai/design-primitives";
 import type { FieldRendererProps } from "@cinatra-ai/sdk-ui/field-renderer-props";
 
 // Condition: registered from the manifest bindings (kind "follow-up-cadence"
